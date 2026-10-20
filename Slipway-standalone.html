@@ -1,0 +1,1650 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+</head>
+<body style="margin:0">
+<title>Slipway</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Slipway is a 3D friction lab you can play: tilt the ramp, pick a surface and planet, predict where the block stops, and clear the challenges.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: a lab bench. Big 3D stage with a control rail beside it, instrument panels underneath. */
+:root {
+  --bg: #eaefe9;
+  --paper: #f7faf6;
+  --grid: #cfd9cd;
+  --ink: #1b2a31;
+  --muted: #5a6a6e;
+  --line: #c3cec4;
+  --accent: #e2570c;
+  --accent-ink: #ffffff;
+  --accent-soft: #fbe3d4;
+  --ramp: #a9b8b0;
+  --bench: #8c9c94;
+  --ramp-edge: #3c4e52;
+  --weight: #c22a1d;
+  --normal: #1d67ad;
+  --friction: #2b8a3e;
+  --good: #2b8a3e;
+  --warn: #b25e00;
+  --scrim: rgb(27 42 49 / 0.42);
+  --shadow: 0 18px 40px rgb(27 42 49 / 0.18);
+  --font-display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10181c; --paper: #162127; --grid: #2a3a42; --ink: #e3ebe7; --muted: #92a3a5; --line: #2c3d45;
+    --accent: #ff7a30; --accent-ink: #1a0d04; --accent-soft: #3a2316; --ramp: #55686e; --bench: #3e4e54; --ramp-edge: #b9cbc5;
+    --weight: #ff6f5e; --normal: #5eaaf0; --friction: #5ccf78; --good: #5ccf78; --warn: #f0a646;
+    --scrim: rgb(4 8 10 / 0.6); --shadow: 0 18px 40px rgb(0 0 0 / 0.45); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10181c; --paper: #162127; --grid: #2a3a42; --ink: #e3ebe7; --muted: #92a3a5; --line: #2c3d45;
+  --accent: #ff7a30; --accent-ink: #1a0d04; --accent-soft: #3a2316; --ramp: #55686e; --bench: #3e4e54; --ramp-edge: #b9cbc5;
+  --weight: #ff6f5e; --normal: #5eaaf0; --friction: #5ccf78; --good: #5ccf78; --warn: #f0a646;
+  --scrim: rgb(4 8 10 / 0.6); --shadow: 0 18px 40px rgb(0 0 0 / 0.45); color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 18px 36px; display: grid; gap: 16px; }
+
+/* Header */
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand svg { width: 46px; height: 46px; flex: none; }
+h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(2.2rem, 6vw, 3.2rem); line-height: 0.9; margin: 0; letter-spacing: 0.02em; text-transform: uppercase; }
+h1 span { color: var(--accent); }
+.tagline { margin: 2px 0 0; color: var(--muted); font-size: 0.92rem; }
+.toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.modes { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--paper); }
+.modes button { border: 0; border-radius: 0; background: transparent; padding: 8px 14px; border-left: 1px solid var(--line); }
+.modes button:first-child { border-left: 0; }
+.modes button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+
+button { font: inherit; cursor: pointer; border-radius: 4px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); padding: 7px 14px; font-weight: 600; }
+button:hover:not(:disabled) { border-color: var(--muted); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); min-width: 104px; }
+button.primary:hover:not(:disabled) { filter: brightness(1.06); border-color: var(--accent); }
+.iconbtn { width: 38px; height: 38px; padding: 0; display: inline-grid; place-items: center; background: var(--paper); }
+.iconbtn svg { width: 18px; height: 18px; }
+.linkbtn { border: 0; background: none; padding: 0; color: var(--accent); font-weight: 600; font-size: 0.85rem; text-decoration: underline; text-underline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Stage */
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .main { grid-template-columns: minmax(0, 1fr); } }
+.stage { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; display: grid; min-width: 0; }
+.canvas-box { position: relative; width: 100%; max-width: 100%; aspect-ratio: 16 / 10; background: var(--paper); }
+@media (max-width: 560px) { .canvas-box { aspect-ratio: 4 / 3; } }
+.canvas-box canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: pan-y; }
+.canvas-box canvas.dragging { cursor: grabbing; }
+.legend3d { position: absolute; top: 10px; right: 10px; display: flex; flex-wrap: wrap; gap: 4px 12px; font-family: var(--font-mono); font-size: 0.72rem; background: color-mix(in srgb, var(--paper) 85%, transparent); padding: 5px 9px; border-radius: 4px; pointer-events: none; }
+.legend3d span { display: inline-flex; align-items: center; gap: 5px; }
+.legend3d i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.hint3d { position: absolute; left: 10px; bottom: 8px; font-size: 0.72rem; color: var(--muted); pointer-events: none; background: color-mix(in srgb, var(--paper) 80%, transparent); padding: 2px 7px; border-radius: 3px; }
+.loading { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 20px; color: var(--muted); font-family: var(--font-mono); font-size: 0.85rem; }
+.statusbar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; padding: 10px 14px; border-top: 1px solid var(--line); }
+#status { font-weight: 500; min-width: 0; flex: 1 1 220px; }
+#status.good { color: var(--good); }
+#status.warn { color: var(--warn); }
+.buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Rail */
+.rail { display: grid; gap: 14px; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 16px; min-width: 0; }
+.label { font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.ctl { display: grid; gap: 4px; }
+.ctl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.ctl-head output { font-family: var(--font-mono); font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+.ctl.locked .label::after { content: " · fixed"; color: var(--accent); }
+.ctl.locked output { color: var(--muted); }
+input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
+input:disabled, select:disabled { opacity: 0.4; cursor: not-allowed; }
+select { font: inherit; width: 100%; padding: 6px 8px; border-radius: 4px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.seg.three { grid-template-columns: repeat(3, 1fr); }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { text-align: center; padding: 6px 2px; cursor: pointer; font-size: 0.84rem; border-left: 1px solid var(--line); }
+.seg label:first-of-type { border-left: 0; }
+.seg input:checked + label { background: var(--ink); color: var(--paper); font-weight: 600; }
+.seg input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: -2px; }
+.seg input:disabled + label { opacity: 0.45; cursor: not-allowed; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+.toggles label { display: flex; gap: 6px; align-items: center; font-size: 0.88rem; cursor: pointer; }
+.toggles input { accent-color: var(--accent); }
+.hr { height: 1px; background: var(--line); }
+.tip { font-size: 0.85rem; color: var(--muted); margin: 0; }
+.tipbox { display: grid; gap: 6px; justify-items: start; }
+
+/* Mode cards */
+.ccard { display: grid; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.lvl-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.lvl-name { font-family: var(--font-display); font-weight: 800; font-size: 1.7rem; line-height: 1; text-transform: uppercase; letter-spacing: 0.02em; text-wrap: balance; }
+.brief { margin: 0; font-size: 0.9rem; }
+.goal { font-family: var(--font-mono); font-size: 0.8rem; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 4px; padding: 6px 9px; }
+.goal b { color: var(--accent); font-weight: 600; }
+.stars { font-size: 1rem; color: var(--accent); letter-spacing: 2px; white-space: nowrap; }
+.stars .off { color: var(--line); }
+.ch-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }
+.ch-nav { display: grid; grid-template-columns: auto 1fr auto; gap: 6px; }
+.ch-nav button { padding: 6px 10px; font-size: 0.85rem; }
+.lastmsg { font-size: 0.85rem; margin: 0; color: var(--warn); }
+.tg-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tg-stats b { display: block; font-family: var(--font-mono); font-size: 1.2rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+/* Panels */
+.data { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr)); gap: 16px; }
+.wide { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .wide { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.panel h2 { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; line-height: 1.1; margin: 0; text-transform: uppercase; letter-spacing: 0.02em; }
+.readouts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.readouts.three { grid-template-columns: repeat(3, 1fr); padding-top: 10px; border-top: 1px dashed var(--line); }
+.readout { min-width: 0; }
+.readout .val { font-family: var(--font-mono); font-size: 1.3rem; font-variant-numeric: tabular-nums; line-height: 1.2; white-space: nowrap; }
+.readouts.three .val { font-size: 1.02rem; }
+.readout .val small { font-size: 0.72rem; color: var(--muted); margin-left: 3px; }
+.eq { font-family: var(--font-mono); font-size: 0.8rem; background: var(--bg); border-radius: 4px; padding: 8px 10px; overflow-x: auto; white-space: nowrap; }
+.pred { display: grid; gap: 6px; margin: 0; }
+.pred div { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px dashed var(--line); padding-bottom: 5px; }
+.pred dt { color: var(--muted); }
+.pred dd { margin: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+.ebar { display: flex; height: 22px; border-radius: 3px; overflow: hidden; background: var(--bg); border: 1px solid var(--line); }
+.ebar div { height: 100%; transition: width 60ms linear; }
+.e-pe { background: var(--normal); }
+.e-ke { background: var(--accent); }
+.e-th { background: var(--weight); }
+.elegend { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: 0.82rem; }
+.elegend > span { display: flex; align-items: flex-start; gap: 5px; }
+.elegend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex: none; margin-top: 5px; }
+.elegend b { display: block; font-family: var(--font-mono); font-weight: 500; font-variant-numeric: tabular-nums; }
+.graph-box { position: relative; width: 100%; height: 220px; }
+.graph-box canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.gtabs { width: auto; min-width: 230px; }
+.log-scroll { overflow: auto; max-height: 262px; border: 1px solid var(--line); border-radius: 4px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.8rem; }
+th, td { padding: 6px 8px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+th { position: sticky; top: 0; background: var(--bg); font-family: var(--font-mono); font-weight: 500; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+td { font-family: var(--font-mono); }
+td.res { text-align: left; font-family: var(--font-body); }
+td.res.ok { color: var(--good); font-weight: 600; }
+td.res.bad { color: var(--warn); }
+.empty { padding: 18px 10px; text-align: center; color: var(--muted); font-size: 0.85rem; }
+#csvBox { width: 100%; min-height: 110px; font-family: var(--font-mono); font-size: 0.75rem; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; padding: 8px; }
+.copied { font-size: 0.8rem; color: var(--good); }
+
+/* Physics notes */
+details.notes { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; }
+details.notes summary { cursor: pointer; font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; text-transform: uppercase; letter-spacing: 0.02em; }
+.notes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 14px 24px; margin-top: 12px; }
+.notes-grid h3 { margin: 0 0 4px; font-size: 0.95rem; }
+.notes-grid p { margin: 0; font-size: 0.88rem; color: var(--muted); max-width: 62ch; }
+.notes-grid code { font-family: var(--font-mono); font-size: 0.82rem; color: var(--ink); background: var(--bg); padding: 1px 5px; border-radius: 3px; }
+footer { display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: space-between; font-size: 0.8rem; color: var(--muted); }
+
+/* Modals */
+.modal { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: var(--scrim); overflow-y: auto;
+  padding-top: max(16px, env(safe-area-inset-top, 0px)); padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.mcard { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 20px; width: 100%; max-width: 440px; display: grid; gap: 12px; box-shadow: var(--shadow); }
+.mcard.wide { max-width: 760px; }
+.mhead { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.mcard h2 { font-family: var(--font-display); font-weight: 800; font-size: 2rem; line-height: 1; margin: 0; text-transform: uppercase; }
+.mcard p { margin: 0; }
+.bigstars { font-size: 2.2rem; color: var(--accent); letter-spacing: 6px; line-height: 1; }
+.bigstars .off { color: var(--line); }
+.lesson { font-size: 0.92rem; background: var(--bg); border-radius: 4px; padding: 10px 12px; }
+.mbtns { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.levels { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+.levels button { display: grid; gap: 2px; text-align: left; padding: 10px 12px; background: var(--bg); }
+.levels button .n { font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); font-weight: 500; }
+.levels button .nm { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; text-transform: uppercase; line-height: 1.1; }
+.levels button.cur { border-color: var(--accent); }
+.keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 0.9rem; }
+.keys dt { font-family: var(--font-mono); }
+kbd { font-family: var(--font-mono); font-size: 0.78rem; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; padding: 1px 6px; background: var(--bg); }
+@media (prefers-reduced-motion: reduce) { .ebar div { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 48 48" aria-hidden="true">
+        <path d="M3 41 H45 L3 14 Z" style="fill:var(--ramp);stroke:var(--ink)" stroke-width="2.4" stroke-linejoin="round"/>
+        <rect x="11" y="11.2" width="12" height="12" transform="rotate(32.7 17 23.2)" style="fill:var(--accent);stroke:var(--ink)" stroke-width="2.4" stroke-linejoin="round"/>
+      </svg>
+      <div>
+        <h1>Slip<span>way</span></h1>
+        <p class="tagline">A friction lab you can play. Tilt the ramp, pick a surface, land the block.</p>
+      </div>
+    </div>
+    <div class="toolbar">
+      <div class="modes" role="group" aria-label="Mode">
+        <button type="button" data-mode="lab" aria-pressed="true">Lab</button>
+        <button type="button" data-mode="challenge" aria-pressed="false">Challenges</button>
+        <button type="button" data-mode="target" aria-pressed="false">Target</button>
+      </div>
+      <button class="iconbtn" id="soundBtn" type="button" aria-pressed="true" title="Sound (M)">
+        <svg id="sndOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></svg>
+        <svg id="sndOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>
+        <span id="sndLabel" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Sound on</span>
+      </button>
+      <button class="iconbtn" id="helpBtn" type="button" title="Help and shortcuts (?)" aria-label="Help and shortcuts">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.4a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.4-2.7 4"/><path d="M12 17.6h.01"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="main">
+    <section class="stage" aria-label="Simulation">
+      <div class="canvas-box" id="simBox">
+        <div class="loading" id="loading">Building the lab bench…</div>
+        <canvas id="sim" aria-label="3D view of a block sliding down a ramp onto a bench"></canvas>
+        <div class="legend3d" id="legend"><span><i style="background:var(--weight)"></i>Weight</span><span><i style="background:var(--normal)"></i>Normal</span><span><i style="background:var(--friction)"></i>Friction</span></div>
+        <div class="hint3d">Drag to orbit · scroll or pinch to zoom</div>
+      </div>
+      <div class="statusbar">
+        <span id="status" role="status" aria-live="polite">Ready. Press Launch or hit Space.</span>
+        <div class="buttons">
+          <button class="primary" id="go" type="button">Launch</button>
+          <button id="reset" type="button">Reset</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="rail" aria-label="Controls">
+      <div class="ccard" id="chCard" hidden>
+        <div class="lvl-top"><span class="label" id="chNum">Challenge 1 of 11</span><span class="stars" id="chStars"></span></div>
+        <div class="lvl-name" id="chName"></div>
+        <p class="brief" id="chBrief"></p>
+        <div class="goal" id="chGoal"></div>
+        <p class="lastmsg" id="chLast" hidden></p>
+        <div class="ch-meta"><span id="chTries">Tries: 0</span><button class="linkbtn" id="hintBtn" type="button">Show hint</button></div>
+        <p class="tip" id="chHint" hidden></p>
+        <div class="ch-nav">
+          <button id="chPrev" type="button" aria-label="Previous challenge">‹ Prev</button>
+          <button id="chList" type="button">All challenges</button>
+          <button id="chNext" type="button" aria-label="Next challenge">Next ›</button>
+        </div>
+      </div>
+
+      <div class="ccard" id="tgCard" hidden>
+        <div class="lvl-top"><span class="label">Target practice</span><span class="label" id="tgBest">Best streak 0</span></div>
+        <div class="lvl-name" id="tgName">Target at 4.0 m</div>
+        <p class="brief">Stop the block inside the orange zone on the bench. Every control is yours, and the predictions are hidden. A hit moves the target.</p>
+        <div class="tg-stats">
+          <div><span class="label">Hits</span><b id="tgHits">0/0</b></div>
+          <div><span class="label">Streak</span><b id="tgStreak">0</b></div>
+          <div><span class="label">Zone</span><b id="tgZone">±0.30</b></div>
+        </div>
+        <button id="tgNew" type="button">New target</button>
+      </div>
+
+      <div class="ctl" data-key="theta">
+        <div class="ctl-head"><label class="label" for="theta">Ramp angle θ</label><output id="thetaOut" for="theta">30°</output></div>
+        <input type="range" id="theta" min="5" max="60" step="1" value="30">
+      </div>
+      <div class="ctl" data-key="L">
+        <div class="ctl-head"><label class="label" for="len">Ramp length L</label><output id="lenOut" for="len">5.0 m</output></div>
+        <input type="range" id="len" min="2" max="6" step="0.5" value="5">
+      </div>
+      <div class="ctl" data-key="surface">
+        <label class="label" for="surface">Surface</label>
+        <select id="surface">
+          <option value="frictionless">Frictionless</option>
+          <option value="ice">Ice</option>
+          <option value="waxed">Waxed wood</option>
+          <option value="wood" selected>Wood on wood</option>
+          <option value="steel">Steel on steel</option>
+          <option value="rubber">Rubber on concrete</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div class="two-col">
+        <div class="ctl" data-key="mus">
+          <div class="ctl-head"><label class="label" for="mus">Static μs</label><output id="musOut" for="mus">0.50</output></div>
+          <input type="range" id="mus" min="0" max="1.2" step="0.01" value="0.5">
+        </div>
+        <div class="ctl" data-key="muk">
+          <div class="ctl-head"><label class="label" for="muk">Kinetic μk</label><output id="mukOut" for="muk">0.30</output></div>
+          <input type="range" id="muk" min="0" max="1" step="0.01" value="0.3">
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="ctl" data-key="m">
+          <div class="ctl-head"><label class="label" for="mass">Mass m</label><output id="massOut" for="mass">2.0 kg</output></div>
+          <input type="range" id="mass" min="0.5" max="10" step="0.5" value="2">
+        </div>
+        <div class="ctl" data-key="v0">
+          <div class="ctl-head"><label class="label" for="v0">Push v₀</label><output id="v0Out" for="v0">0.0 m/s</output></div>
+          <input type="range" id="v0" min="0" max="6" step="0.1" value="0">
+        </div>
+      </div>
+      <div class="ctl" data-key="planet">
+        <span class="label" id="gLabel">Gravity</span>
+        <div class="seg" role="radiogroup" aria-labelledby="gLabel">
+          <input type="radio" name="g" id="gE" value="E" checked><label for="gE" title="9.81 m/s²">Earth</label>
+          <input type="radio" name="g" id="gM" value="M"><label for="gM" title="1.62 m/s²">Moon</label>
+          <input type="radio" name="g" id="gR" value="R"><label for="gR" title="3.71 m/s²">Mars</label>
+          <input type="radio" name="g" id="gJ" value="J"><label for="gJ" title="24.79 m/s²">Jupiter</label>
+        </div>
+      </div>
+      <div class="hr"></div>
+      <div class="ctl">
+        <span class="label" id="camLabel">Camera</span>
+        <div class="seg three" role="radiogroup" aria-labelledby="camLabel">
+          <input type="radio" name="cam" id="camB" value="bench" checked><label for="camB">Bench</label>
+          <input type="radio" name="cam" id="camF" value="follow"><label for="camF">Follow</label>
+          <input type="radio" name="cam" id="camS" value="side"><label for="camS">Side</label>
+        </div>
+      </div>
+      <div class="ctl">
+        <span class="label" id="spLabel">Playback speed</span>
+        <div class="seg three" role="radiogroup" aria-labelledby="spLabel">
+          <input type="radio" name="sp" id="sp1" value="1" checked><label for="sp1">1×</label>
+          <input type="radio" name="sp" id="sp2" value="0.5"><label for="sp2">½×</label>
+          <input type="radio" name="sp" id="sp4" value="0.25"><label for="sp4">¼×</label>
+        </div>
+      </div>
+      <div class="toggles">
+        <label><input type="checkbox" id="tForces" checked> Forces</label>
+        <label><input type="checkbox" id="tComps"> Components</label>
+        <label><input type="checkbox" id="tTape" checked> Ticker tape</label>
+        <label><input type="checkbox" id="tGhost" checked> Last-run ghost</label>
+      </div>
+      <div class="tipbox" id="tipBox">
+        <span class="label">Experiment</span>
+        <p class="tip" id="tip"></p>
+        <button class="linkbtn" id="nextTip" type="button">Another experiment</button>
+      </div>
+    </aside>
+  </div>
+
+  <div class="data">
+    <section class="panel" aria-labelledby="hLive">
+      <h2 id="hLive">Live readings</h2>
+      <div class="readouts">
+        <div class="readout"><div class="label">Time</div><div class="val" id="rT">0.00<small>s</small></div></div>
+        <div class="readout"><div class="label">Speed</div><div class="val" id="rV">0.00<small>m/s</small></div></div>
+        <div class="readout"><div class="label">Acceleration</div><div class="val" id="rA">0.00<small>m/s²</small></div></div>
+        <div class="readout"><div class="label" id="rDLabel">Down the ramp</div><div class="val" id="rD">0.00<small>m</small></div></div>
+      </div>
+      <div class="readouts three">
+        <div class="readout"><div class="label">Normal</div><div class="val" id="rN">0<small>N</small></div></div>
+        <div class="readout"><div class="label" id="rFLabel">Friction</div><div class="val" id="rF">0<small>N</small></div></div>
+        <div class="readout"><div class="label">Net force</div><div class="val" id="rNet">0<small>N</small></div></div>
+      </div>
+      <div class="eq" id="eq"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="hPred">
+      <h2 id="hPred">Prediction</h2>
+      <dl class="pred">
+        <div><dt>Slip angle (arctan μs)</dt><dd id="pSlip"></dd></div>
+        <div><dt>Moves from rest?</dt><dd id="pMove"></dd></div>
+        <div><dt>Ramp acceleration</dt><dd id="pA"></dd></div>
+        <div><dt>Time on ramp</dt><dd id="pT"></dd></div>
+        <div><dt>Speed at bottom</dt><dd id="pVb"></dd></div>
+        <div><dt>Where it stops</dt><dd id="pD"></dd></div>
+      </dl>
+      <p class="tip" id="predNote"></p>
+    </section>
+
+    <section class="panel" aria-labelledby="hEnergy">
+      <h2 id="hEnergy">Energy</h2>
+      <div class="ebar" aria-hidden="true"><div class="e-pe" id="ePE"></div><div class="e-ke" id="eKE"></div><div class="e-th" id="eTH"></div></div>
+      <div class="elegend">
+        <span><i class="e-pe"></i><span>Potential<b id="vPE">0 J</b></span></span>
+        <span><i class="e-ke"></i><span>Kinetic<b id="vKE">0 J</b></span></span>
+        <span><i class="e-th"></i><span>Heat<b id="vTH">0 J</b></span></span>
+      </div>
+      <p class="tip">The bar's total length stays fixed while the block slides. Energy only moves between the three kinds, and friction turns it into heat.</p>
+    </section>
+  </div>
+
+  <div class="wide">
+    <section class="panel" aria-labelledby="hGraph">
+      <div class="panel-head">
+        <h2 id="hGraph">Graph</h2>
+        <div class="seg gtabs" role="radiogroup" aria-label="Graph type">
+          <input type="radio" name="gm" id="gmV" value="v" checked><label for="gmV">Speed</label>
+          <input type="radio" name="gm" id="gmD" value="d"><label for="gmD">Distance</label>
+          <input type="radio" name="gm" id="gmA" value="a"><label for="gmA">Accel.</label>
+          <input type="radio" name="gm" id="gmE" value="E"><label for="gmE">Energy</label>
+        </div>
+      </div>
+      <div class="graph-box"><canvas id="graph" aria-label="Graph of the current run against time"></canvas></div>
+    </section>
+
+    <section class="panel" aria-labelledby="hLog">
+      <div class="panel-head">
+        <h2 id="hLog">Run log</h2>
+        <div class="buttons"><button id="copyCsv" type="button">Copy as CSV</button><button id="clearLog" type="button">Clear</button></div>
+      </div>
+      <span class="copied" id="copied" hidden>Copied. Paste it into any spreadsheet.</span>
+      <textarea id="csvBox" readonly hidden aria-label="Run log as CSV"></textarea>
+      <div class="log-scroll" id="logScroll"></div>
+    </section>
+  </div>
+
+  <details class="notes">
+    <summary>How the physics works</summary>
+    <div class="notes-grid">
+      <div><h3>Splitting the weight</h3><p>On a ramp at angle θ the weight <code>mg</code> splits into <code>mg sin θ</code> pulling down the slope and <code>mg cos θ</code> pressing into it. The ramp pushes back with the normal force <code>N = mg cos θ</code>.</p></div>
+      <div><h3>Will it slip?</h3><p>Static friction can hold up to <code>μs N</code>. The block starts sliding when <code>mg sin θ &gt; μs mg cos θ</code>, which simplifies to <code>tan θ &gt; μs</code>. Mass and gravity cancel out.</p></div>
+      <div><h3>Sliding down</h3><p>Once moving, kinetic friction <code>μk N</code> acts up the slope, so <code>a = g(sin θ − μk cos θ)</code>. If that is negative, the ramp slows the block down even though it is going downhill.</p></div>
+      <div><h3>Speed and time</h3><p>With constant acceleration, <code>v² = v₀² + 2aL</code> gives the speed at the bottom and <code>t = (v − v₀)/a</code> the time on the ramp.</p></div>
+      <div><h3>Stopping on the bench</h3><p>On the flat bench friction gives <code>a = −μk g</code>, so the block stops after <code>d = v²/(2μk g)</code>. From rest this becomes <code>d = L(sin θ − μk cos θ)/μk</code>, with no g or m in it.</p></div>
+      <div><h3>Energy</h3><p>Potential energy <code>mgh</code> becomes kinetic energy <code>½mv²</code>, and friction converts it to heat at a rate of <code>μk N</code> joules per metre. The three always add up to the starting total.</p></div>
+    </div>
+  </details>
+
+  <footer><span>Slipway 1.0 · a friction and inclined-plane lab</span><span>Simulated with a 1 ms physics step. Values use g = 9.81 m/s² on Earth.</span></footer>
+</div>
+
+<div class="modal" id="mLevels" hidden role="dialog" aria-modal="true" aria-labelledby="mLevelsH">
+  <div class="mcard wide">
+    <div class="mhead"><h2 id="mLevelsH">Challenges</h2><button class="iconbtn" type="button" data-close aria-label="Close">✕</button></div>
+    <p class="tip" id="mLevelsSum"></p>
+    <div class="levels" id="levelGrid"></div>
+  </div>
+</div>
+
+<div class="modal" id="mWin" hidden role="dialog" aria-modal="true" aria-labelledby="winName">
+  <div class="mcard">
+    <span class="label">Challenge cleared</span>
+    <h2 id="winName"></h2>
+    <div class="bigstars" id="winStars"></div>
+    <p id="winMsg"></p>
+    <p class="lesson" id="winLesson"></p>
+    <div class="mbtns"><button id="winReplay" type="button">Replay</button><button class="primary" id="winNext" type="button">Next challenge</button></div>
+  </div>
+</div>
+
+<div class="modal" id="mHelp" hidden role="dialog" aria-modal="true" aria-labelledby="mHelpH">
+  <div class="mcard">
+    <div class="mhead"><h2 id="mHelpH">How to play</h2><button class="iconbtn" type="button" data-close aria-label="Close">✕</button></div>
+    <p><b>Lab</b> is free play: change anything and compare runs with the ghost and the run log. <b>Challenges</b> are eleven puzzles with some controls fixed. <b>Target</b> places random zones on the bench.</p>
+    <p class="tip">Clear a challenge on the first try for three stars, within three tries for two. Progress is saved in this browser.</p>
+    <dl class="keys">
+      <dt><kbd>Space</kbd></dt><dd>Launch, pause, resume</dd>
+      <dt><kbd>R</kbd></dt><dd>Reset the run</dd>
+      <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Ramp angle down or up 1°</dd>
+      <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Bench, follow or side camera</dd>
+      <dt><kbd>G</kbd> <kbd>F</kbd></dt><dd>Ghost and force arrows on or off</dd>
+      <dt><kbd>M</kbd></dt><dd>Sound on or off</dd>
+    </dl>
+    <div class="mbtns"><button class="primary" type="button" data-close>Got it</button></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+
+  // ---------- Constants ----------
+  const FLOOR = 8;        // bench length past the bottom of the ramp, m
+  const DT = 0.001;       // physics step, s
+  const D = 1.5;          // bench depth (z), m
+  const BENCH_X0 = -6.8, BENCH_H = 0.35;
+  const PLANETS = { E: { g: 9.81, name: 'Earth' }, M: { g: 1.62, name: 'Moon' }, R: { g: 3.71, name: 'Mars' }, J: { g: 24.79, name: 'Jupiter' } };
+  const SURFACES = { frictionless: [0, 0], ice: [0.10, 0.03], waxed: [0.25, 0.15], wood: [0.50, 0.30], steel: [0.74, 0.57], rubber: [1.00, 0.80] };
+  const DEFAULTS = { theta: 30, mus: 0.5, muk: 0.3, m: 2, v0: 0, planet: 'E', L: 5 };
+  const KEYS = ['theta', 'L', 'surface', 'mus', 'muk', 'm', 'v0', 'planet'];
+
+  const LEVELS = [
+    { id: 'first-slide', name: 'First slide', set: { theta: 18 }, unlock: ['theta'], goal: { type: 'bottom' },
+      brief: 'The block sits on a wood ramp and refuses to budge. Tilt the ramp until it slides all the way to the bottom.',
+      hint: 'Static friction holds the block while tan θ ≤ μs. With μs = 0.50, which angle has a tangent above 0.50?',
+      lesson: 'A block starts to slip once tan θ is larger than μs. For wood on wood that happens just above 26.6°.' },
+    { id: 'hold-steady', name: 'Hold steady', set: { theta: 6, mus: 0.25, muk: 0.15 }, unlock: ['theta'], goal: { type: 'static', min: 14 },
+      brief: 'Waxed wood is slippery. Find the steepest angle where the block still stays put when you let go.',
+      hint: 'The slip angle is arctan(μs). Work out arctan(0.25) and stay at or just below it.',
+      lesson: 'The slip angle depends only on μs, never on mass or gravity. For waxed wood it is arctan 0.25 = 14.0°.' },
+    { id: 'bullseye', name: 'Bullseye', set: { theta: 20 }, unlock: ['theta'], goal: { type: 'floor', x: 3.0, w: 0.6 },
+      brief: 'Release the block from rest and make it stop inside the zone at 3.0 m.',
+      hint: 'From rest, the block stops d = L(sin θ − μk cos θ)/μk along the bench. It also has to start moving at all.',
+      lesson: 'Small angle changes make big distance changes. Only 27° both beats static friction and lands in this zone.' },
+    { id: 'heavy-hitter', name: 'Heavy hitter', set: { theta: 40, m: 10 }, unlock: ['theta'], goal: { type: 'floor', x: 4.0, w: 0.6 },
+      brief: 'Same wood ramp, but the block now weighs 10 kg. Land it in the zone at 4.0 m.',
+      hint: 'Would a 2 kg block need a different angle? Mass appears in every force, then cancels out.',
+      lesson: 'Weight, normal force and friction all scale with m, so a = g(sin θ − μk cos θ) for any mass. The 2 kg answer works here too.' },
+    { id: 'moonwalk', name: 'Moonwalk', set: { theta: 25, planet: 'M' }, unlock: ['theta'], goal: { type: 'floor', x: 5.0, w: 0.6 },
+      brief: 'On the Moon, gravity is about a sixth of Earth’s. Land the block in the zone at 5.0 m.',
+      hint: 'Weak gravity makes the block slower on the ramp, but it also weakens friction on the bench. Does g end up in the stopping distance at all?',
+      lesson: 'Released from rest, the stopping distance L(sin θ − μk cos θ)/μk has no g in it. The Moon run is slower, not shorter.' },
+    { id: 'push-start', name: 'Push start', set: { theta: 15 }, unlock: ['v0'], goal: { type: 'floor', x: 2.0, w: 0.6 },
+      brief: 'The ramp is stuck at 15°, too shallow to slide on its own. Push the block so it stops in the zone at 2.0 m.',
+      hint: 'Here friction beats gravity, so the block slows on the way down. Use v² = v₀² + 2aL with a negative a, then d = v²/(2μk g).',
+      lesson: 'Below the slip angle the ramp acts as a brake. The push has to carry the block through 5 m of slowing down first.' },
+    { id: 'thin-ice', name: 'Thin ice', set: { theta: 10, mus: 0.10, muk: 0.03 }, unlock: ['theta', 'L'], goal: { type: 'bench' },
+      brief: 'On ice the block barely slows down. Get it to stop on the bench without sliding off the far end.',
+      hint: 'A shorter ramp and a gentler angle both lower the drop height. The angle still has to beat μs = 0.10, so it needs at least 6°.',
+      lesson: 'With very low μk the stopping distance is huge, so you control it through the height you drop from: h = L sin θ.' },
+    { id: 'quick-draw', name: 'Quick draw', set: { theta: 30 }, unlock: ['theta', 'surface', 'mus', 'muk'], goal: { type: 'time', t: 1.2 },
+      brief: 'Get the block down the 5 m ramp in 1.20 s or less.',
+      hint: 'From rest, t = √(2L/a). You need a big acceleration, so steepen the ramp and cut the friction.',
+      lesson: 'Even with no friction the acceleration is capped at g sin θ, so a 5 m ramp needs about 46° to beat 1.2 s on Earth.' },
+    { id: 'dial-it-in', name: 'Dial it in', set: { theta: 40, planet: 'J', mus: 0.6, muk: 0.2 }, unlock: ['muk'], goal: { type: 'floor', x: 6.0, w: 0.6 },
+      brief: 'On Jupiter at 40°, only kinetic friction can change. Land the block in the zone at 6.0 m.',
+      hint: 'Set L(sin θ − μk cos θ)/μk equal to 6 and solve for μk.',
+      lesson: 'Solving gives μk ≈ 0.33. Jupiter’s strong gravity changes how fast it all happens, not where the block stops.' },
+    { id: 'brake-test', name: 'Brake test', set: { theta: 20, mus: 1.0, muk: 0.8 }, unlock: ['v0'], goal: { type: 'ramp', s0: 3, s1: 4 },
+      brief: 'Rubber on concrete grips hard. Push the block so it stops on the ramp itself, 3 to 4 metres down.',
+      hint: 'Here a = g(sin θ − μk cos θ) is negative. The block stops after v₀²/(2|a|).',
+      lesson: 'When μk > tan θ the block slows even while going downhill, and static friction then keeps it parked.' },
+    { id: 'final-exam', name: 'Final exam', set: { theta: 30, planet: 'R' }, unlock: KEYS.slice(), goal: { type: 'floor', x: 7.2, w: 0.4 },
+      brief: 'Mars, a narrow zone, and every control unlocked. Land the block in the zone at 7.2 m.',
+      hint: 'Pick a surface first, then solve for the angle and ramp length. Mass and g only matter once you add a push.',
+      lesson: 'You can predict where a sliding block stops from four numbers: θ, L, μk and v₀. That is the whole game.' }
+  ];
+
+  const TIPS = [
+    'Change the mass and launch again. Does a heavier block reach the bottom any faster? The ghost shows your last run for comparison.',
+    'Find the slip angle for wood on wood. Raise the angle one degree at a time until the block moves on its own.',
+    'Switch to the Moon and launch from rest. The run is slower, but where does it stop compared with Earth?',
+    'Pick Frictionless and watch the energy bar. Where does all the potential energy go?',
+    'Set an angle below the slip angle and give a push. Does the block speed up or slow down on the ramp?',
+    'Open the acceleration graph. Why does it jump from positive to negative when the block reaches the bench?',
+    'Double the ramp length from 3 m to 6 m. Does the speed at the bottom double too?'
+  ];
+
+  // ---------- Saved state ----------
+  const STORE_KEY = 'slipway.v1';
+  function loadStore() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) { return {}; } }
+  const saved = loadStore();
+  const progress = (saved && typeof saved.progress === 'object' && saved.progress) || {};
+  let bestStreak = +saved.bestStreak || 0;
+  let soundOn = saved.sound !== false;
+  function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify({ progress, bestStreak, sound: soundOn })); } catch (e) { /* storage unavailable */ } }
+
+  // ---------- Parameters & state ----------
+  const P = Object.assign({}, DEFAULTS, { speed: 1, forces: true, comps: false, tape: true, ghost: true, cam: 'bench', graph: 'v' });
+  const g = () => PLANETS[P.planet].g;
+  const rad = () => P.theta * Math.PI / 180;
+  const blockSize = m => 0.32 + 0.17 * Math.cbrt(m == null ? P.m : m);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const f2 = n => (Math.abs(n) < 0.005 ? 0 : n).toFixed(2);
+
+  let mode = 'lab', lvlIdx = 0, lvlTries = 0, unlocked = null;
+  let tgt = { x: 4, w: 0.6 }, tHits = 0, tTries = 0, streak = 0;
+  let S = null, runId = 0, lastRun = null, tipIdx = 0;
+  let dirty = true, graphDirty = true;
+  const invalidate = () => { dirty = true; graphDirty = true; };
+
+  // ---------- Physics ----------
+  function rampAccel(v) {
+    if (v <= 1e-9 && Math.tan(rad()) <= P.mus) return 0;
+    return g() * (Math.sin(rad()) - P.muk * Math.cos(rad()));
+  }
+  function rampTop() { return { x: -P.L * Math.cos(rad()), y: P.L * Math.sin(rad()) }; }
+  function contactPoint() {
+    if (S.phase === 'ramp') { const t = rampTop(); return { x: t.x + S.s * Math.cos(rad()), y: t.y - S.s * Math.sin(rad()), ang: rad() }; }
+    return { x: S.x, y: 0, ang: 0 };
+  }
+  function energies() {
+    const h = S.phase === 'ramp' ? (P.L - S.s) * Math.sin(rad()) : 0;
+    return { pe: P.m * g() * h, ke: 0.5 * P.m * S.v * S.v, th: S.heat };
+  }
+  function sampleNow() { const e = energies(); return [S.t, S.v, S.s + S.x, S.a, e.pe, e.ke, e.th]; }
+  function pathNow() { const c = contactPoint(); return [S.t, c.x, c.y, c.ang]; }
+
+  function reset() {
+    runId++;
+    S = { id: runId, t: 0, phase: 'ramp', s: 0, x: 0, v: P.v0, a: 0, heat: 0, run: false, done: false, kind: null,
+          tapeAcc: 0, histAcc: 0, pathAcc: 0, hist: [], path: [], tRampEnd: null, vBottom: null, fall: null, shownPhase: null };
+    S.a = rampAccel(S.v);
+    S.hist.push(sampleNow()); S.path.push(pathNow());
+    setGo('Launch');
+    setStatus(readyText(), '');
+    Snd.slide(0);
+    updatePrediction();
+    updateReadouts();
+    if (G) clearTape();
+    invalidate();
+  }
+  function readyText() {
+    if (mode === 'challenge') return 'Set it up, then press Launch.';
+    if (mode === 'target') return `Target at ${tgt.x.toFixed(1)} m. Press Launch when you are ready.`;
+    return 'Ready. Press Launch or hit Space.';
+  }
+
+  function step(dt) {
+    const sn = Math.sin(rad()), cs = Math.cos(rad()), G0 = g();
+    if (S.phase === 'ramp') {
+      if (S.v <= 1e-9 && Math.tan(rad()) <= P.mus) { S.v = 0; finish(S.t === 0 ? 'static' : 'rampstop'); return; }
+      const a = G0 * (sn - P.muk * cs);
+      const vNew = S.v + a * dt;
+      if (vNew < 0) {
+        const t0 = S.v / -a, ds = S.v * t0 / 2;
+        S.s += ds; S.heat += P.muk * P.m * G0 * cs * ds; S.t += t0; S.v = 0;
+        finish('rampstop'); return;
+      }
+      const ds = (S.v + vNew) / 2 * dt;
+      S.s += ds; S.heat += P.muk * P.m * G0 * cs * ds; S.v = vNew; S.a = a; S.t += dt;
+      if (S.s >= P.L) { S.x = S.s - P.L; S.s = P.L; S.phase = 'floor'; S.tRampEnd = S.t; S.vBottom = S.v; S.hist.push(sampleNow()); }
+    } else {
+      if (S.v <= 1e-9) { S.v = 0; finish('floorstop'); return; }
+      const a = -P.muk * G0;
+      const vNew = S.v + a * dt;
+      if (vNew <= 0) {
+        const t0 = S.v / -a, dx = S.v * t0 / 2;
+        S.x += dx; S.heat += P.muk * P.m * G0 * dx; S.t += t0; S.v = 0;
+        if (S.x >= FLOOR) { S.x = FLOOR; finish('edge'); } else finish('floorstop');
+        return;
+      }
+      const dx = (S.v + vNew) / 2 * dt;
+      S.x += dx; S.heat += P.muk * P.m * G0 * dx; S.v = vNew; S.a = a; S.t += dt;
+      if (S.x >= FLOOR) { S.x = FLOOR; finish('edge'); return; }
+    }
+    S.tapeAcc += dt; S.histAcc += dt; S.pathAcc += dt;
+    if (S.tapeAcc >= 0.1 - 1e-9) { S.tapeAcc -= 0.1; addTapeDot(contactPoint()); }
+    if (S.histAcc >= 0.02) { S.histAcc = 0; S.hist.push(sampleNow()); }
+    if (S.pathAcc >= 1 / 60) { S.pathAcc = 0; S.path.push(pathNow()); }
+  }
+
+  function finish(kind) {
+    S.run = false; S.done = true; S.a = 0; S.kind = kind;
+    if (kind !== 'edge') S.v = 0;
+    S.hist.push(sampleNow()); S.path.push(pathNow());
+    setGo('Launch');
+    Snd.slide(0);
+    let msg, cls = 'good';
+    if (kind === 'static') {
+      msg = `Static friction holds it: tan θ = ${Math.tan(rad()).toFixed(2)} ≤ μs = ${P.mus.toFixed(2)}. Steepen the ramp or give it a push.`; cls = 'warn';
+    } else if (kind === 'rampstop') {
+      msg = `Friction stopped it ${S.s.toFixed(2)} m down the ramp after ${S.t.toFixed(2)} s.`; cls = 'warn'; Snd.thud();
+    } else if (kind === 'edge') {
+      msg = 'It slid right off the end of the bench. Add friction or lower the ramp.'; cls = 'warn';
+      S.fall = { x: FLOOR, y: blockSize() / 2, vx: Math.max(S.v, 0.6), vy: 0, r: 0, rest: false };
+    } else {
+      msg = `Stopped ${S.x.toFixed(2)} m along the bench after ${S.t.toFixed(2)} s.`; Snd.thud();
+    }
+    setStatus(msg, cls);
+    lastRun = { id: S.id, hist: S.hist, path: S.path, theta: P.theta, L: P.L, b: blockSize() };
+    logRun(kind);
+    judge(kind);
+    updateReadouts();
+    invalidate();
+  }
+
+  function forceState() {
+    if (!S || S.fall) return null;
+    const W = P.m * g();
+    if (S.phase === 'ramp') {
+      const th = rad(), N = W * Math.cos(th), Wt = W * Math.sin(th);
+      const sliding = S.v > 1e-9 || (!S.done && Math.tan(th) > P.mus);
+      if (sliding) return { W, N, f: P.muk * N, kinetic: true, net: Wt - P.muk * N, Wt };
+      return { W, N, f: Wt, kinetic: false, net: 0, Wt };
+    }
+    const f = S.v > 1e-9 ? P.muk * W : 0;
+    return { W, N: W, f, kinetic: true, net: -f, Wt: 0 };
+  }
+
+  function predict() {
+    const th = rad(), sn = Math.sin(th), cs = Math.cos(th), tn = Math.tan(th);
+    const a = g() * (sn - P.muk * cs);
+    const r = { a, moves: tn > P.mus, tn, slip: Math.atan(P.mus) * 180 / Math.PI };
+    if (P.v0 <= 0 && !r.moves) { r.kind = 'static'; return r; }
+    const vb2 = P.v0 * P.v0 + 2 * a * P.L;
+    if (vb2 <= 0) { r.kind = 'rampstop'; r.sStop = P.v0 * P.v0 / (2 * -a); r.tStop = P.v0 / -a; return r; }
+    r.vb = Math.sqrt(vb2);
+    r.tRamp = Math.abs(a) < 1e-9 ? P.L / P.v0 : (r.vb - P.v0) / a;
+    r.d = P.muk > 0 ? vb2 / (2 * P.muk * g()) : Infinity;
+    r.kind = r.d >= FLOOR ? 'edge' : 'floorstop';
+    return r;
+  }
+
+  // ---------- Goals ----------
+  function currentGoal() {
+    if (mode === 'target') return { type: 'floor', x: tgt.x, w: tgt.w };
+    if (mode === 'challenge') return LEVELS[lvlIdx].goal;
+    return null;
+  }
+  function goalText(gl) {
+    switch (gl.type) {
+      case 'floor': return `Goal: stop between <b>${(gl.x - gl.w / 2).toFixed(1)} m</b> and <b>${(gl.x + gl.w / 2).toFixed(1)} m</b> on the bench`;
+      case 'ramp': return `Goal: stop <b>${gl.s0.toFixed(1)}–${gl.s1.toFixed(1)} m</b> down the ramp`;
+      case 'bottom': return 'Goal: reach the <b>bottom of the ramp</b>';
+      case 'static': return `Goal: stay put at <b>${gl.min}°</b> or steeper`;
+      case 'bench': return 'Goal: stop on the bench before the <b>8 m</b> mark';
+      case 'time': return `Goal: reach the bottom in <b>${gl.t.toFixed(2)} s</b> or less`;
+    }
+    return '';
+  }
+  function evaluate(gl, kind) {
+    const reached = S.tRampEnd != null;
+    const notMoved = 'It never moved. Static friction is still winning.';
+    switch (gl.type) {
+      case 'floor': {
+        if (kind !== 'floorstop') return { ok: false, msg: kind === 'edge' ? 'It slid off the end of the bench.' : kind === 'static' ? notMoved : `It stopped on the ramp, ${S.s.toFixed(2)} m down.` };
+        const off = S.x - gl.x;
+        if (Math.abs(off) <= gl.w / 2 + 1e-9) return { ok: true, msg: `Stopped at ${S.x.toFixed(2)} m, ${Math.round(Math.abs(off) * 100)} cm from the centre.` };
+        return { ok: false, msg: `Stopped at ${S.x.toFixed(2)} m, ${Math.abs(off).toFixed(2)} m ${off > 0 ? 'too far' : 'too short'}.` };
+      }
+      case 'ramp': {
+        if (kind === 'rampstop') {
+          const ok = S.s >= gl.s0 && S.s <= gl.s1;
+          return { ok, msg: ok ? `Parked ${S.s.toFixed(2)} m down the ramp.` : `Stopped ${S.s.toFixed(2)} m down the ramp, ${S.s < gl.s0 ? 'short of' : 'past'} the zone.` };
+        }
+        return { ok: false, msg: kind === 'static' ? 'It never moved. Give it a push.' : 'It made it all the way down. Push more gently.' };
+      }
+      case 'bottom':
+        return reached ? { ok: true, msg: `It reached the bottom at ${S.vBottom.toFixed(2)} m/s.` } : { ok: false, msg: kind === 'static' ? notMoved : 'It stopped on the ramp.' };
+      case 'static':
+        if (kind !== 'static') return { ok: false, msg: `It slipped at ${P.theta}°. That is past the slip angle.` };
+        return P.theta >= gl.min ? { ok: true, msg: `It held at ${P.theta}°, right at the edge of slipping.` } : { ok: false, msg: `It held at ${P.theta}°. You can go steeper.` };
+      case 'bench':
+        if (kind === 'floorstop') return { ok: true, msg: `It stopped at ${S.x.toFixed(2)} m.` };
+        return { ok: false, msg: kind === 'edge' ? 'It slid off the end. Lower the drop height.' : kind === 'static' ? notMoved : 'It never reached the bench.' };
+      case 'time':
+        if (!reached) return { ok: false, msg: kind === 'static' ? notMoved : 'It never reached the bottom.' };
+        return S.tRampEnd <= gl.t + 1e-9 ? { ok: true, msg: `Down the ramp in ${S.tRampEnd.toFixed(2)} s.` } : { ok: false, msg: `Down the ramp in ${S.tRampEnd.toFixed(2)} s. Need ${gl.t.toFixed(2)} s or less.` };
+    }
+    return { ok: false, msg: '' };
+  }
+  const starsFor = tries => tries <= 1 ? 3 : tries <= 3 ? 2 : 1;
+  function starsHTML(n) { return `<span aria-label="${n} of 3 stars">${'★'.repeat(n)}<span class="off">${'★'.repeat(3 - n)}</span></span>`; }
+  const available = i => i === 0 || (progress[LEVELS[i - 1].id] || 0) > 0;
+
+  function judge(kind) {
+    const gl = currentGoal(); if (!gl) return;
+    const r = evaluate(gl, kind), id = S.id;
+    if (mode === 'challenge') {
+      lvlTries++;
+      const lv = LEVELS[lvlIdx];
+      if (r.ok) {
+        const st = starsFor(lvlTries);
+        progress[lv.id] = Math.max(progress[lv.id] || 0, st); persist();
+        setStatus(`Cleared! ${r.msg}`, 'good'); Snd.win();
+        setTimeout(() => { if (mode === 'challenge' && S.id === id) openWin(st, r.msg); }, 900);
+        renderChallengeCard(null);
+      } else {
+        setStatus(r.msg, 'warn'); Snd.miss();
+        renderChallengeCard(r.msg);
+      }
+    } else if (mode === 'target') {
+      tTries++;
+      if (r.ok) {
+        tHits++; streak++;
+        if (streak > bestStreak) { bestStreak = streak; persist(); }
+        setStatus(`Hit! ${r.msg} A new target is on the way.`, 'good'); Snd.win();
+        setTimeout(() => { if (mode === 'target' && S.id === id) newTarget(); }, 1600);
+      } else {
+        streak = 0; setStatus(`Miss. ${r.msg}`, 'warn'); Snd.miss();
+      }
+      renderTargetCard();
+    }
+  }
+
+  // ---------- Readouts ----------
+  const fmtJ = j => (j >= 100 ? j.toFixed(0) : j.toFixed(1)) + ' J';
+  const fmtN = n => (Math.abs(n) >= 100 ? n.toFixed(0) : (Math.abs(n) < 0.05 ? 0 : n).toFixed(1));
+  function setVal(id, num, unit) { $(id).innerHTML = num + '<small>' + unit + '</small>'; }
+  function updateReadouts() {
+    setVal('rT', S.t.toFixed(2), 's');
+    setVal('rV', f2(S.v), 'm/s');
+    setVal('rA', f2(S.a), 'm/s²');
+    if (S.phase === 'ramp') { $('rDLabel').textContent = 'Down the ramp'; setVal('rD', S.s.toFixed(2), 'm'); }
+    else { $('rDLabel').textContent = 'Along the bench'; setVal('rD', S.x.toFixed(2), 'm'); }
+    const F = forceState();
+    if (F) {
+      setVal('rN', fmtN(F.N), 'N'); setVal('rF', fmtN(F.f), 'N'); setVal('rNet', fmtN(F.net), 'N');
+      $('rFLabel').textContent = F.f > 1e-6 ? (F.kinetic ? 'Friction fk' : 'Friction fs') : 'Friction';
+    } else { setVal('rN', '0', 'N'); setVal('rF', '0', 'N'); setVal('rNet', '0', 'N'); }
+    const e = energies(), tot = e.pe + e.ke + e.th || 1;
+    $('ePE').style.width = (e.pe / tot * 100) + '%';
+    $('eKE').style.width = (e.ke / tot * 100) + '%';
+    $('eTH').style.width = (e.th / tot * 100) + '%';
+    $('vPE').textContent = fmtJ(e.pe); $('vKE').textContent = fmtJ(e.ke); $('vTH').textContent = fmtJ(e.th);
+  }
+
+  function updatePrediction() {
+    const th = rad(), sn = Math.sin(th), cs = Math.cos(th);
+    const r = predict(), hide = mode !== 'lab', q = 'work it out';
+    $('eq').textContent = `a = g(sin θ − μk cos θ) = ${g().toFixed(2)}(${sn.toFixed(3)} − ${P.muk.toFixed(2)}×${cs.toFixed(3)}) = ${r.a.toFixed(2)} m/s²`;
+    $('pSlip').textContent = hide ? q : r.slip.toFixed(1) + '°';
+    $('pMove').textContent = hide ? q : `${r.moves ? 'Yes' : 'No'}, tan θ ${r.tn.toFixed(2)} ${r.moves ? '>' : '≤'} μs`;
+    $('pA').textContent = r.a.toFixed(2) + ' m/s²';
+    let note = 'The bench uses the same surface as the ramp and ends 8 m past the bottom.';
+    if (r.kind === 'static') {
+      $('pT').textContent = $('pVb').textContent = '—';
+      $('pD').textContent = hide ? q : 'stays put';
+      if (!hide) note = 'It stays put unless you steepen the ramp or give it a push.';
+    } else if (r.kind === 'rampstop') {
+      $('pT').textContent = hide ? q : 'never gets there';
+      $('pVb').textContent = hide ? q : '—';
+      $('pD').textContent = hide ? q : `${r.sStop.toFixed(2)} m down ramp`;
+      if (!hide) note = `Friction beats gravity here, so the ramp slows the block to a stop after ${r.tStop.toFixed(2)} s.`;
+    } else {
+      $('pT').textContent = hide ? q : r.tRamp.toFixed(2) + ' s';
+      $('pVb').textContent = hide ? q : r.vb.toFixed(2) + ' m/s';
+      $('pD').textContent = hide ? q : (r.kind === 'edge' ? 'off the edge' : `${r.d.toFixed(2)} m along bench`);
+    }
+    if (hide) note = 'Predictions are hidden in this mode. Use v² = v₀² + 2ad and the formula above.';
+    $('predNote').textContent = note;
+  }
+
+  function setStatus(t, cls) { const el = $('status'); el.textContent = t; el.className = cls || ''; }
+  function setGo(t) { $('go').textContent = t; }
+
+  // ---------- Run log ----------
+  const runs = []; let runNo = 0;
+  function resultText(r) {
+    if (r.kind === 'static') return 'No move';
+    if (r.kind === 'rampstop') return `Ramp ${r.s.toFixed(2)} m`;
+    if (r.kind === 'edge') return 'Off edge';
+    return `Bench ${r.x.toFixed(2)} m`;
+  }
+  function logRun(kind) {
+    const gl = currentGoal();
+    runs.unshift({ n: ++runNo, mode, theta: P.theta, L: P.L, mus: P.mus, muk: P.muk, m: P.m, v0: P.v0, planet: P.planet,
+      kind, s: S.s, x: S.x, t: S.t, tRamp: S.tRampEnd, vb: S.vBottom, ok: gl ? evaluate(gl, kind).ok : null });
+    if (runs.length > 100) runs.pop();
+    renderLog();
+  }
+  function renderLog() {
+    const box = $('logScroll');
+    if (!runs.length) { box.innerHTML = '<div class="empty">Your runs will appear here. Launch the block to record the first one.</div>'; return; }
+    let h = '<table><thead><tr><th>#</th><th>θ</th><th>L</th><th>μs</th><th>μk</th><th>m</th><th>v₀</th><th>g</th><th>Ramp t</th><th style="text-align:left">Result</th></tr></thead><tbody>';
+    for (const r of runs) {
+      const cls = r.ok === true ? 'ok' : r.ok === false ? 'bad' : '';
+      h += `<tr><td>${r.n}</td><td>${r.theta}°</td><td>${r.L.toFixed(1)}</td><td>${r.mus.toFixed(2)}</td><td>${r.muk.toFixed(2)}</td><td>${r.m.toFixed(1)}</td><td>${r.v0.toFixed(1)}</td><td>${PLANETS[r.planet].name}</td><td>${r.tRamp != null ? r.tRamp.toFixed(2) + ' s' : '—'}</td><td class="res ${cls}">${resultText(r)}${r.ok === true ? ' ✓' : ''}</td></tr>`;
+    }
+    box.innerHTML = h + '</tbody></table>';
+  }
+  function csv() {
+    const head = ['run', 'mode', 'angle_deg', 'ramp_length_m', 'mu_static', 'mu_kinetic', 'mass_kg', 'push_m_s', 'planet', 'g_m_s2', 'outcome', 'ramp_distance_m', 'bench_distance_m', 'ramp_time_s', 'speed_at_bottom_m_s', 'total_time_s', 'goal_met'];
+    const rows = runs.slice().reverse().map(r => [r.n, r.mode, r.theta, r.L, r.mus, r.muk, r.m, r.v0, PLANETS[r.planet].name, PLANETS[r.planet].g, r.kind,
+      r.s.toFixed(3), r.x.toFixed(3), r.tRamp != null ? r.tRamp.toFixed(3) : '', r.vb != null ? r.vb.toFixed(3) : '', r.t.toFixed(3), r.ok == null ? '' : r.ok ? 'yes' : 'no'].join(','));
+    return [head.join(',')].concat(rows).join('\n');
+  }
+
+  // ---------- Sound ----------
+  const Snd = {
+    ctx: null, gain: null, filt: null,
+    ensure() {
+      if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {}); return; }
+      if (!soundOn) return;
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+        const c = new AC(), len = c.sampleRate * 2, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+        const src = c.createBufferSource(); src.buffer = buf; src.loop = true;
+        const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 400; f.Q.value = 0.9;
+        const gn = c.createGain(); gn.gain.value = 0;
+        src.connect(f); f.connect(gn); gn.connect(c.destination); src.start();
+        this.ctx = c; this.filt = f; this.gain = gn;
+      } catch (e) { this.ctx = null; }
+    },
+    slide(v) {
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+      const level = soundOn && v > 0.02 ? Math.min(0.08, 0.008 + v * (0.003 + P.muk * 0.02)) : 0;
+      this.gain.gain.setTargetAtTime(level, t, 0.04);
+      this.filt.frequency.setTargetAtTime(220 + Math.min(v, 12) * 90, t, 0.05);
+    },
+    tone(freq, dur, type, vol, when) {
+      if (!this.ctx || !soundOn) return;
+      const c = this.ctx, t = c.currentTime + (when || 0), o = c.createOscillator(), gn = c.createGain();
+      o.type = type || 'sine'; o.frequency.setValueAtTime(freq, t);
+      gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(vol || 0.1, t + 0.01); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(gn); gn.connect(c.destination); o.start(t); o.stop(t + dur + 0.05);
+    },
+    launch() { this.tone(880, 0.07, 'square', 0.04); },
+    thud() { this.tone(85, 0.28, 'sine', 0.3); this.tone(150, 0.1, 'triangle', 0.08); },
+    win() { [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => this.tone(f, 0.32, 'triangle', 0.11, 0.12 + i * 0.09)); },
+    miss() { this.tone(233, 0.2, 'sawtooth', 0.035, 0.12); this.tone(196, 0.3, 'sawtooth', 0.035, 0.26); }
+  };
+  function renderSound() {
+    $('soundBtn').setAttribute('aria-pressed', String(soundOn));
+    $('sndOn').hidden = !soundOn; $('sndOff').hidden = soundOn;
+    $('sndLabel').textContent = soundOn ? 'Sound on' : 'Sound off';
+  }
+  function toggleSound() { soundOn = !soundOn; persist(); renderSound(); if (soundOn) Snd.ensure(); else Snd.slide(0); }
+
+  // ---------- Theme tokens ----------
+  let C = {}, themeKey = '';
+  const TOKENS = ['bg', 'paper', 'grid', 'ink', 'muted', 'line', 'accent', 'accent-ink', 'ramp', 'bench', 'ramp-edge', 'weight', 'normal', 'friction'];
+  function readTokens() {
+    const cs = getComputedStyle(document.documentElement);
+    TOKENS.forEach(k => C[k] = cs.getPropertyValue('--' + k).trim() || '#888');
+    C.mono = cs.getPropertyValue('--font-mono').trim() || 'monospace';
+    const key = TOKENS.map(k => C[k]).join('|');
+    if (key !== themeKey) { themeKey = key; if (G) applyTheme(); invalidate(); }
+  }
+
+  // ---------- 3D scene ----------
+  let G = null;
+  const simCanvas = $('sim');
+
+  function labelSprite(text, colorKey, h) {
+    const cv = document.createElement('canvas');
+    const tex = new THREE.CanvasTexture(cv);
+    tex.minFilter = THREE.LinearFilter;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+    sp.renderOrder = 20;
+    sp.userData = { text, colorKey, h: h || 0.26, cv, tex };
+    drawLabel(sp);
+    G.labels.push(sp);
+    return sp;
+  }
+  function drawLabel(sp) {
+    const u = sp.userData, ctx = u.cv.getContext('2d'), fs = 46;
+    ctx.font = `600 ${fs}px ${C.mono}`;
+    const w = Math.ceil(ctx.measureText(u.text).width) + 26, hpx = fs + 22;
+    u.cv.width = w; u.cv.height = hpx;
+    ctx.font = `600 ${fs}px ${C.mono}`;
+    ctx.globalAlpha = 0.82; ctx.fillStyle = C.paper;
+    const r = 10; ctx.beginPath(); ctx.moveTo(r, 0); ctx.arcTo(w, 0, w, hpx, r); ctx.arcTo(w, hpx, 0, hpx, r); ctx.arcTo(0, hpx, 0, 0, r); ctx.arcTo(0, 0, w, 0, r); ctx.fill();
+    ctx.globalAlpha = 1; ctx.fillStyle = C[u.colorKey]; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(u.text, w / 2, hpx / 2 + 2);
+    u.tex.needsUpdate = true;
+    sp.scale.set(u.h * w / hpx, u.h, 1);
+  }
+  function setLabel(sp, text) { if (sp.userData.text !== text) { sp.userData.text = text; drawLabel(sp); } }
+
+  function std(colorKey, extra) {
+    const m = new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.75, metalness: 0.05 }, extra || {}));
+    G.mats.push([m, colorKey]);
+    return m;
+  }
+  function lineMat(colorKey, extra) { const m = new THREE.LineBasicMaterial(extra || {}); G.mats.push([m, colorKey]); return m; }
+
+  function makeArrow(colorKey, faint) {
+    const grp = new THREE.Group();
+    const mat = std(colorKey, faint ? { transparent: true, opacity: 0.55, roughness: 0.5, depthTest: false } : { roughness: 0.45, depthTest: false });
+    const r = faint ? 0.022 : 0.035;
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 1, 14), mat);
+    const head = new THREE.Mesh(new THREE.ConeGeometry(r * 2.6, 0.22, 18), mat);
+    shaft.castShadow = head.castShadow = !faint;
+    shaft.renderOrder = head.renderOrder = 15;
+    grp.add(shaft, head);
+    grp.userData = { shaft, head };
+    G.scene.add(grp);
+    return grp;
+  }
+  let UP = null;
+  function setArrow(arr, ox, oy, oz, dx, dy, len) {
+    if (len < 0.05) { arr.visible = false; return; }
+    arr.visible = true;
+    const head = Math.min(0.22, len * 0.5);
+    const dir = new THREE.Vector3(dx, dy, 0).normalize();
+    arr.position.set(ox, oy, oz);
+    arr.quaternion.setFromUnitVectors(UP, dir);
+    const { shaft, head: h } = arr.userData;
+    shaft.scale.y = len - head; shaft.position.y = (len - head) / 2;
+    h.scale.set(1, head / 0.22, 1); h.position.y = len - head / 2;
+  }
+
+  function initScene() {
+    UP = new THREE.Vector3(0, 1, 0);
+    const renderer = new THREE.WebGLRenderer({ canvas: simCanvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(36, 16 / 10, 0.1, 200);
+    G = { renderer, scene, camera, mats: [], labels: [], tapeDots: [] };
+
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f88, 0.62));
+    const sun = new THREE.DirectionalLight(0xffffff, 0.75);
+    sun.position.set(3, 11, 7);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    Object.assign(sun.shadow.camera, { left: -11, right: 12, top: 9, bottom: -6, near: 1, far: 40 });
+    sun.shadow.bias = -0.0005;
+    scene.add(sun);
+
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), std('bg', { roughness: 1 }));
+    ground.rotation.x = -Math.PI / 2; ground.position.y = -BENCH_H; ground.receiveShadow = true;
+    scene.add(ground);
+    const grid = new THREE.GridHelper(44, 88);
+    grid.position.y = -BENCH_H + 0.002;
+    G.grid = grid; scene.add(grid);
+
+    // Bench
+    const benchLen = FLOOR - BENCH_X0;
+    const bench = new THREE.Mesh(new THREE.BoxGeometry(benchLen, BENCH_H, D), std('bench'));
+    bench.position.set(BENCH_X0 + benchLen / 2, -BENCH_H / 2, 0);
+    bench.castShadow = bench.receiveShadow = true;
+    bench.add(new THREE.LineSegments(new THREE.EdgesGeometry(bench.geometry), lineMat('ramp-edge')));
+    scene.add(bench);
+
+    // Metre ruler on the bench
+    const tickMat = std('ink', { roughness: 0.6 });
+    for (let m = 0; m <= FLOOR; m++) {
+      const tick = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.006, 0.22), tickMat);
+      tick.position.set(m, 0.003, D / 2 - 0.13);
+      scene.add(tick);
+      const lab = labelSprite(m === 0 ? '0 m' : String(m), 'ink', 0.24);
+      lab.position.set(m, 0.18, D / 2 - 0.05);
+      scene.add(lab);
+    }
+    for (let m = 0.5; m < FLOOR; m += 1) {
+      const tick = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.006, 0.12), tickMat);
+      tick.position.set(m, 0.003, D / 2 - 0.08);
+      scene.add(tick);
+    }
+
+    // Ramp (rebuilt when θ or L change), with metre marks measured from the top
+    G.rampMat = std('ramp'); G.rampEdgeMat = lineMat('ramp-edge'); G.arcMat = lineMat('ink');
+    G.thetaLabel = labelSprite('θ = 30°', 'ink', 0.3); scene.add(G.thetaLabel);
+    G.rampTicks = []; G.rampTickLabels = [];
+    const rTickGeo = new THREE.BoxGeometry(0.03, 0.006, 0.22);
+    for (let i = 1; i <= 5; i++) {
+      const t = new THREE.Mesh(rTickGeo, tickMat); scene.add(t); G.rampTicks.push(t);
+      const l = labelSprite(i + ' m', 'muted', 0.2); scene.add(l); G.rampTickLabels.push(l);
+    }
+
+    // Block and its ghost
+    G.faceCanvas = document.createElement('canvas'); G.faceCanvas.width = G.faceCanvas.height = 256;
+    G.faceTex = new THREE.CanvasTexture(G.faceCanvas);
+    const side = std('accent', { roughness: 0.55 });
+    const face = new THREE.MeshStandardMaterial({ map: G.faceTex, roughness: 0.55 });
+    const block = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), [side, side, side, side, face, side]);
+    block.castShadow = true; block.receiveShadow = true;
+    block.add(new THREE.LineSegments(new THREE.EdgesGeometry(block.geometry), lineMat('ink')));
+    G.block = block; scene.add(block);
+    const ghost = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), std('ink', { transparent: true, opacity: 0.14, depthWrite: false }));
+    ghost.add(new THREE.LineSegments(new THREE.EdgesGeometry(ghost.geometry), lineMat('ink', { transparent: true, opacity: 0.5 })));
+    ghost.visible = false; ghost.renderOrder = 5;
+    G.ghost = ghost; scene.add(ghost);
+
+    // Ticker tape dots
+    G.dotGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.012, 14);
+    G.dotMat = std('ink', { roughness: 0.6 });
+
+    // Goal markers: bench zone with flag, ramp zone, finish line, danger strip
+    const zoneMat = std('accent', { transparent: true, opacity: 0.32, roughness: 1, depthWrite: false });
+    const tgtGroup = new THREE.Group();
+    const zone = new THREE.Mesh(new THREE.PlaneGeometry(1, D - 0.1), zoneMat);
+    zone.rotation.x = -Math.PI / 2; zone.position.y = 0.004;
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.4, 10), std('ink'));
+    pole.position.set(0, 0.7, -D / 2 + 0.12); pole.castShadow = true;
+    const flagShape = new THREE.Shape(); flagShape.moveTo(0, 0); flagShape.lineTo(0.45, -0.15); flagShape.lineTo(0, -0.3);
+    const flag = new THREE.Mesh(new THREE.ShapeGeometry(flagShape), std('accent', { side: THREE.DoubleSide }));
+    flag.position.set(0, 1.4, -D / 2 + 0.12); flag.castShadow = true;
+    tgtGroup.add(zone, pole, flag); tgtGroup.visible = false;
+    G.target = tgtGroup; G.zone = zone; scene.add(tgtGroup);
+
+    const rz = new THREE.Group();
+    const rzPlane = new THREE.Mesh(new THREE.PlaneGeometry(1, D - 0.1), zoneMat);
+    rzPlane.rotation.x = -Math.PI / 2;
+    rz.add(rzPlane); rz.visible = false;
+    G.rampZone = rz; G.rampZonePlane = rzPlane; scene.add(rz);
+
+    const fin = new THREE.Mesh(new THREE.PlaneGeometry(0.14, D - 0.1), zoneMat);
+    fin.rotation.x = -Math.PI / 2; fin.position.set(0.09, 0.004, 0); fin.visible = false;
+    G.finishLine = fin; scene.add(fin);
+
+    const danger = new THREE.Mesh(new THREE.PlaneGeometry(0.3, D - 0.1), std('weight', { transparent: true, opacity: 0.4, roughness: 1, depthWrite: false }));
+    danger.rotation.x = -Math.PI / 2; danger.position.set(FLOOR - 0.15, 0.004, 0); danger.visible = false;
+    G.danger = danger; scene.add(danger);
+
+    // Force arrows and labels
+    G.arrows = { W: makeArrow('weight'), N: makeArrow('normal'), f: makeArrow('friction'), cS: makeArrow('weight', true), cC: makeArrow('weight', true) };
+    G.alabels = { W: labelSprite('mg', 'weight'), N: labelSprite('N', 'normal'), f: labelSprite('fk', 'friction'), cS: labelSprite('mg sin θ', 'weight', 0.22), cC: labelSprite('mg cos θ', 'weight', 0.22) };
+    Object.values(G.alabels).forEach(l => scene.add(l));
+
+    G.view = { az: 0.42, el: 0.36, zoom: 1, tx: 1.3, ty: 0.9, dist: 14 };
+    G.cur = Object.assign({}, G.view);
+
+    applyTheme();
+    buildRamp();
+    drawBlockFace();
+    placeGoal();
+    resize();
+    new ResizeObserver(() => { resize(); invalidate(); }).observe($('simBox'));
+    bindOrbit();
+    $('loading').hidden = true;
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { G.labels.forEach(drawLabel); drawBlockFace(); invalidate(); });
+  }
+
+  function applyTheme() {
+    G.mats.forEach(([m, k]) => m.color.set(C[k]));
+    G.scene.background = new THREE.Color(C.paper);
+    G.scene.fog = new THREE.Fog(C.paper, 24, 52);
+    const gm = Array.isArray(G.grid.material) ? G.grid.material : [G.grid.material];
+    gm.forEach(m => { m.color.set(C.grid); m.vertexColors = false; m.needsUpdate = true; });
+    G.labels.forEach(drawLabel);
+    drawBlockFace();
+  }
+
+  function buildRamp() {
+    if (!G) return;
+    if (G.ramp) { G.scene.remove(G.ramp); G.ramp.geometry.dispose(); }
+    if (G.arc) { G.scene.remove(G.arc); G.arc.geometry.dispose(); }
+    const t = rampTop(), th = rad();
+    const shape = new THREE.Shape();
+    shape.moveTo(t.x, 0); shape.lineTo(0, 0); shape.lineTo(t.x, t.y); shape.closePath();
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: D, bevelEnabled: false });
+    geo.translate(0, 0, -D / 2);
+    const ramp = new THREE.Mesh(geo, G.rampMat);
+    ramp.castShadow = ramp.receiveShadow = true;
+    ramp.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), G.rampEdgeMat));
+    G.ramp = ramp; G.scene.add(ramp);
+    const r = 1.0, pts = [];
+    for (let i = 0; i <= 32; i++) { const a = Math.PI - th * i / 32; pts.push(new THREE.Vector3(r * Math.cos(a), r * Math.sin(a), D / 2 + 0.01)); }
+    G.arc = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), G.arcMat);
+    G.scene.add(G.arc);
+    setLabel(G.thetaLabel, `θ = ${P.theta}°`);
+    const la = Math.PI - th / 2;
+    G.thetaLabel.position.set(1.45 * Math.cos(la), Math.max(0.2, 1.45 * Math.sin(la)), D / 2 + 0.1);
+    const nx = Math.sin(th), ny = Math.cos(th);
+    G.rampTicks.forEach((tk, i) => {
+      const s = i + 1, show = s < P.L - 0.01;
+      tk.visible = G.rampTickLabels[i].visible = show;
+      if (!show) return;
+      const px = t.x + s * Math.cos(th), py = t.y - s * Math.sin(th);
+      tk.position.set(px + nx * 0.003, py + ny * 0.003, D / 2 - 0.13); tk.rotation.z = -th;
+      G.rampTickLabels[i].position.set(px + nx * 0.2, py + ny * 0.2, D / 2 - 0.05);
+    });
+  }
+
+  function drawBlockFace() {
+    if (!G) return;
+    const ctx = G.faceCanvas.getContext('2d');
+    ctx.fillStyle = C.accent; ctx.fillRect(0, 0, 256, 256);
+    ctx.fillStyle = C['accent-ink']; ctx.font = `600 64px ${C.mono}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText((P.m % 1 ? P.m.toFixed(1) : P.m) + 'kg', 128, 134);
+    G.faceTex.needsUpdate = true;
+  }
+
+  function placeGoal() {
+    if (!G) return;
+    const gl = currentGoal(), type = gl && gl.type;
+    G.target.visible = type === 'floor';
+    if (type === 'floor') { G.target.position.x = gl.x; G.zone.scale.x = gl.w; }
+    G.rampZone.visible = type === 'ramp';
+    if (type === 'ramp') {
+      const t = rampTop(), th = rad(), sm = (gl.s0 + gl.s1) / 2;
+      G.rampZone.position.set(t.x + sm * Math.cos(th) + Math.sin(th) * 0.006, t.y - sm * Math.sin(th) + Math.cos(th) * 0.006, 0);
+      G.rampZone.rotation.z = -th;
+      G.rampZonePlane.scale.x = gl.s1 - gl.s0;
+    }
+    G.finishLine.visible = type === 'bottom' || type === 'time';
+    G.danger.visible = type === 'bench';
+    invalidate();
+  }
+
+  function addTapeDot(p) {
+    if (!G) return;
+    const d = new THREE.Mesh(G.dotGeo, G.dotMat);
+    d.position.set(p.x + Math.sin(p.ang) * 0.008, p.y + Math.cos(p.ang) * 0.008, 0);
+    d.rotation.z = -p.ang;
+    d.visible = P.tape;
+    G.scene.add(d); G.tapeDots.push(d);
+  }
+  function clearTape() { G.tapeDots.forEach(d => G.scene.remove(d)); G.tapeDots = []; }
+
+  function resize() {
+    if (!G) return;
+    const r = $('simBox').getBoundingClientRect();
+    G.renderer.setSize(Math.max(1, r.width), Math.max(1, r.height), false);
+    G.camera.aspect = r.width / Math.max(1, r.height);
+    G.camera.updateProjectionMatrix();
+  }
+
+  // ---------- Camera ----------
+  function bindOrbit() {
+    const pts = new Map(); let drag = null, pinch = null;
+    simCanvas.addEventListener('pointerdown', e => {
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      try { simCanvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      if (pts.size === 1) { drag = { x: e.clientX, y: e.clientY, az: G.view.az, el: G.view.el }; simCanvas.classList.add('dragging'); }
+      else if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), zoom: G.view.zoom }; drag = null; }
+    });
+    simCanvas.addEventListener('pointermove', e => {
+      if (!pts.has(e.pointerId)) return;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinch && pts.size >= 2) {
+        const [a, b] = [...pts.values()];
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        if (d > 10) G.view.zoom = clamp(pinch.zoom * pinch.d / d, 0.35, 2.2);
+      } else if (drag) {
+        G.view.az = drag.az - (e.clientX - drag.x) * 0.006;
+        G.view.el = clamp(drag.el + (e.clientY - drag.y) * 0.005, -0.05, 1.35);
+      }
+      invalidate();
+    });
+    const end = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; if (!pts.size) { drag = null; simCanvas.classList.remove('dragging'); } };
+    simCanvas.addEventListener('pointerup', end); simCanvas.addEventListener('pointercancel', end);
+    simCanvas.addEventListener('wheel', e => { e.preventDefault(); G.view.zoom = clamp(G.view.zoom * Math.exp(e.deltaY * 0.0012), 0.35, 2.2); invalidate(); }, { passive: false });
+    simCanvas.addEventListener('dblclick', () => { setCamMode(P.cam); invalidate(); });
+  }
+  function setCamMode(m) {
+    P.cam = m;
+    const r = $('cam' + { bench: 'B', follow: 'F', side: 'S' }[m]); if (r) r.checked = true;
+    if (!G) return;
+    if (m === 'bench') { G.view.az = 0.42; G.view.el = 0.36; }
+    if (m === 'side') { G.view.az = 0; G.view.el = 0.04; }
+    if (m === 'follow') { G.view.az = 0.75; G.view.el = 0.32; }
+    G.view.zoom = 1;
+    invalidate();
+  }
+  function benchDistance() {
+    const span = FLOOR - rampTop().x + 1.6;
+    const vfov = G.camera.fov * Math.PI / 180;
+    const hfov = 2 * Math.atan(Math.tan(vfov / 2) * G.camera.aspect);
+    const byW = span / 2 / Math.tan(hfov / 2);
+    const byH = (rampTop().y + 1.8) / 2 / Math.tan(vfov / 2);
+    return Math.max(byW, byH) * 1.02;
+  }
+
+  function ghostAt(t) {
+    const p = lastRun.path; let lo = 0, hi = p.length - 1;
+    if (t <= p[0][0]) return p[0];
+    if (t >= p[hi][0]) return p[hi];
+    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (p[mid][0] <= t) lo = mid; else hi = mid; }
+    const a = p[lo], b = p[hi], k = (t - a[0]) / Math.max(1e-9, b[0] - a[0]);
+    return [t, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k, k < 1 ? a[3] : b[3]];
+  }
+
+  // ---------- Render ----------
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  function render3D(realDt) {
+    const th = rad(), b = blockSize();
+    const cp = contactPoint(), ang = cp.ang;
+    const nx = Math.sin(ang), ny = Math.cos(ang);
+    let bx, by, rotZ;
+    if (S.fall) { bx = S.fall.x; by = S.fall.y; rotZ = S.fall.r; }
+    else { bx = cp.x + nx * b / 2; by = cp.y + ny * b / 2; rotZ = -ang; }
+    G.block.scale.setScalar(b);
+    G.block.position.set(bx, by, 0);
+    G.block.rotation.z = rotZ;
+
+    const gv = P.ghost && lastRun && lastRun.id !== S.id && lastRun.theta === P.theta && lastRun.L === P.L;
+    G.ghost.visible = !!gv;
+    if (gv) {
+      const p = ghostAt(S.t), gb = lastRun.b;
+      G.ghost.scale.setScalar(gb * 1.002);
+      G.ghost.position.set(p[1] + Math.sin(p[3]) * gb / 2, p[2] + Math.cos(p[3]) * gb / 2, 0);
+      G.ghost.rotation.z = -p[3];
+    }
+
+    Object.values(G.arrows).forEach(a => a.visible = false);
+    Object.values(G.alabels).forEach(l => l.visible = false);
+    const F = P.forces ? forceState() : null;
+    if (F) {
+      const k = 1.3 / F.W, oz = b / 2 + 0.06;
+      const dirx = Math.cos(ang), diry = -Math.sin(ang);
+      const put = (key, dx, dy, mag) => {
+        const len = mag * k;
+        setArrow(G.arrows[key], bx, by, oz, dx, dy, len);
+        if (len >= 0.05) { const l = G.alabels[key]; l.visible = true; const n = Math.hypot(dx, dy); l.position.set(bx + dx / n * (len + 0.22), by + dy / n * (len + 0.22), oz); }
+      };
+      put('W', 0, -1, F.W);
+      put('N', nx, ny, F.N);
+      if (F.f > 1e-6) { setLabel(G.alabels.f, F.kinetic ? 'fk' : 'fs'); put('f', -dirx, -diry, F.f); }
+      if (P.comps && S.phase === 'ramp') { put('cS', dirx, diry, F.W * Math.sin(th)); put('cC', -nx, -ny, F.W * Math.cos(th)); }
+    }
+    $('legend').hidden = !P.forces;
+
+    const v = G.view;
+    if (P.cam === 'follow') { v.tx = bx; v.ty = by + 0.2; v.dist = 4.6; }
+    else { v.tx = (FLOOR + rampTop().x) / 2; v.ty = Math.max(0.8, rampTop().y * 0.42); v.dist = benchDistance(); }
+    const c = G.cur, s = reduceMotion.matches ? 1 : Math.min(1, realDt * 5);
+    let moving = 0;
+    ['az', 'el', 'zoom', 'tx', 'ty', 'dist'].forEach(key => { const d = v[key] - c[key]; c[key] += d * s; moving = Math.max(moving, Math.abs(d)); });
+    const d = c.dist * c.zoom;
+    G.camera.position.set(c.tx + d * Math.sin(c.az) * Math.cos(c.el), c.ty + d * Math.sin(c.el), d * Math.cos(c.az) * Math.cos(c.el));
+    G.camera.lookAt(c.tx, c.ty, 0);
+    G.renderer.render(G.scene, G.camera);
+    return moving < 1e-4;
+  }
+
+  function updateFall(dt) {
+    const f = S.fall; if (!f || f.rest) return;
+    const floorY = -BENCH_H + blockSize() / 2;
+    f.vy -= 9.81 * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.r -= 2.2 * dt * Math.min(1, f.vx);
+    if (f.y <= floorY) { f.y = floorY; f.vy = 0; f.vx = 0; f.r = Math.round(f.r / (Math.PI / 2)) * (Math.PI / 2); f.rest = true; Snd.thud(); }
+  }
+
+  // ---------- Graph ----------
+  const graph = $('graph'), gctx = graph.getContext('2d');
+  function fitCanvas(cv) {
+    const r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+    const w = Math.max(1, Math.round(r.width * d)), h = Math.max(1, Math.round(r.height * d));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    return { w: r.width, h: r.height, d };
+  }
+  function niceStep(span) { const r = Math.max(span, 1e-6) / 4, p = Math.pow(10, Math.floor(Math.log10(r))); const n = r / p; return (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * p; }
+  const GRAPH_META = { v: { col: 1, unit: 'speed (m/s)' }, d: { col: 2, unit: 'distance travelled (m)' }, a: { col: 3, unit: 'acceleration (m/s²)' }, E: { unit: 'energy (J)' } };
+  function drawGraph() {
+    const { w, h, d } = fitCanvas(graph);
+    const ctx = gctx; ctx.setTransform(d, 0, 0, d, 0, 0); ctx.clearRect(0, 0, w, h);
+    if (w < 40) return;
+    const live = S.hist.concat(S.run ? [sampleNow()] : []);
+    const meta = GRAPH_META[P.graph], series = [];
+    const showGhost = P.ghost && lastRun && lastRun.id !== S.id && P.graph !== 'E';
+    if (P.graph === 'E') {
+      series.push({ pts: live.map(r => [r[0], r[4]]), color: C.normal, name: 'Potential' },
+                  { pts: live.map(r => [r[0], r[5]]), color: C.accent, name: 'Kinetic' },
+                  { pts: live.map(r => [r[0], r[6]]), color: C.weight, name: 'Heat' });
+    } else {
+      if (showGhost) series.push({ pts: lastRun.hist.map(r => [r[0], r[meta.col]]), color: C.muted, dash: true, name: 'Last run' });
+      series.push({ pts: live.map(r => [r[0], r[meta.col]]), color: C.accent, dot: true, name: 'This run' });
+    }
+    let tMax = 2, yMin = 0, yMax = 1;
+    series.forEach(s => s.pts.forEach(([t, y]) => { if (t > tMax) tMax = t; if (y > yMax) yMax = y; if (y < yMin) yMin = y; }));
+    tMax *= 1.04;
+    const ts = niceStep(tMax), tTop = Math.ceil(tMax / ts) * ts;
+    const ys = niceStep(yMax - yMin), yTop = Math.ceil(yMax / ys - 1e-9) * ys, yBot = Math.floor(yMin / ys + 1e-9) * ys;
+    const pad = { l: 44, r: 12, t: 26, b: 26 };
+    const gx = t => pad.l + t / tTop * (w - pad.l - pad.r), gy = y => h - pad.b - (y - yBot) / (yTop - yBot) * (h - pad.t - pad.b);
+    ctx.font = `11px ${C.mono}`; ctx.lineWidth = 1;
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (let y = yBot; y <= yTop + ys * 1e-6; y += ys) {
+      ctx.strokeStyle = Math.abs(y) < ys * 1e-6 ? C.muted : C.line;
+      ctx.beginPath(); ctx.moveTo(pad.l, gy(y)); ctx.lineTo(w - pad.r, gy(y)); ctx.stroke();
+      ctx.fillStyle = C.muted; ctx.fillText(String(+y.toFixed(2)), pad.l - 6, gy(y));
+    }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    for (let t = 0; t <= tTop + ts * 1e-6; t += ts) ctx.fillText(String(+t.toFixed(2)), gx(t), h - pad.b + 6);
+    ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText('time (s)', w - pad.r, h - pad.b - 4); ctx.textBaseline = 'top';
+    ctx.strokeStyle = C.muted; ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, h - pad.b); ctx.stroke();
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = C.muted; ctx.fillText(meta.unit, pad.l, 4);
+    if (S.tRampEnd != null) {
+      ctx.setLineDash([4, 4]); ctx.strokeStyle = C.muted; ctx.beginPath(); ctx.moveTo(gx(S.tRampEnd), pad.t); ctx.lineTo(gx(S.tRampEnd), h - pad.b); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = C.muted; ctx.textAlign = 'left'; ctx.fillText('reaches bench', gx(S.tRampEnd) + 5, pad.t + 2);
+    }
+    for (const s of series) {
+      if (s.pts.length < 2) continue;
+      ctx.strokeStyle = s.color; ctx.lineWidth = s.dash ? 1.6 : 2.4; ctx.lineJoin = 'round';
+      ctx.setLineDash(s.dash ? [5, 4] : []);
+      ctx.beginPath(); s.pts.forEach((p, i) => i ? ctx.lineTo(gx(p[0]), gy(p[1])) : ctx.moveTo(gx(p[0]), gy(p[1]))); ctx.stroke();
+      ctx.setLineDash([]);
+      if (s.dot || P.graph === 'E') { const lp = s.pts[s.pts.length - 1]; ctx.fillStyle = s.color; ctx.beginPath(); ctx.arc(gx(lp[0]), gy(lp[1]), 3.5, 0, Math.PI * 2); ctx.fill(); }
+    }
+    if (series.length > 1) {
+      ctx.font = `11px ${C.mono}`; ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+      let x = w - pad.r;
+      for (let i = series.length - 1; i >= 0; i--) {
+        const s = series[i]; ctx.fillStyle = s.color; ctx.fillText(s.name, x, 4);
+        const tw = ctx.measureText(s.name).width; ctx.fillRect(x - tw - 14, 9, 9, 3); x -= tw + 26;
+      }
+    }
+  }
+
+  // ---------- Loop ----------
+  let last = performance.now(), camSettled = false;
+  function frame(now) {
+    const real = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+    if (S.run) {
+      let simT = real * P.speed;
+      while (simT > 1e-12 && S.run) { const dt = Math.min(DT, simT); step(dt); simT -= dt; }
+      updateReadouts();
+      if (S.run) {
+        Snd.slide(S.v);
+        if (S.shownPhase !== S.phase) { S.shownPhase = S.phase; setStatus(S.phase === 'ramp' ? 'Sliding down the ramp…' : 'On the bench. Friction is slowing it down…', ''); }
+      }
+      invalidate();
+    }
+    if (S.fall && !S.fall.rest) { updateFall(real * P.speed); dirty = true; }
+    if (G && (dirty || !camSettled)) { camSettled = render3D(real); dirty = false; }
+    if (graphDirty) { drawGraph(); graphDirty = false; }
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- Modes ----------
+  function applyLocks(list) {
+    unlocked = list;
+    document.querySelectorAll('.ctl[data-key]').forEach(el => {
+      const lk = isLocked(el.dataset.key);
+      el.classList.toggle('locked', lk);
+      el.querySelectorAll('input, select').forEach(i => { i.disabled = lk; });
+    });
+  }
+  const isLocked = k => !!unlocked && !unlocked.includes(k);
+
+  function enterLevel(i) {
+    lvlIdx = clamp(i, 0, LEVELS.length - 1); lvlTries = 0;
+    const lv = LEVELS[lvlIdx];
+    Object.assign(P, DEFAULTS, lv.set);
+    applyLocks(lv.unlock);
+    $('chHint').hidden = true; $('hintBtn').textContent = 'Show hint';
+    syncInputs();
+    reset();
+    placeGoal();
+    renderChallengeCard(null);
+  }
+  function renderChallengeCard(lastMsg) {
+    const lv = LEVELS[lvlIdx], st = progress[lv.id] || 0;
+    $('chNum').textContent = `Challenge ${lvlIdx + 1} of ${LEVELS.length}`;
+    $('chStars').innerHTML = starsHTML(st);
+    $('chName').textContent = lv.name;
+    $('chBrief').textContent = lv.brief;
+    $('chGoal').innerHTML = goalText(lv.goal);
+    $('chTries').textContent = `Tries this round: ${lvlTries}`;
+    $('chHint').textContent = lv.hint;
+    $('chLast').hidden = !lastMsg; $('chLast').textContent = lastMsg ? `Last try: ${lastMsg}` : '';
+    $('chPrev').disabled = lvlIdx === 0;
+    $('chNext').disabled = lvlIdx >= LEVELS.length - 1 || !available(lvlIdx + 1);
+  }
+  function totalStars() { return LEVELS.reduce((a, l) => a + (progress[l.id] || 0), 0); }
+  function renderLevelGrid() {
+    const done = LEVELS.filter(l => progress[l.id]).length;
+    $('mLevelsSum').textContent = done === LEVELS.length
+      ? `Every challenge cleared, with ${totalStars()} of ${LEVELS.length * 3} stars. Replay any of them for a better score.`
+      : `${done} of ${LEVELS.length} cleared · ${totalStars()} of ${LEVELS.length * 3} stars. Clear a challenge to unlock the next one.`;
+    $('levelGrid').innerHTML = LEVELS.map((l, i) => {
+      const ok = available(i), st = progress[l.id] || 0;
+      return `<button type="button" data-lvl="${i}" class="${i === lvlIdx && mode === 'challenge' ? 'cur' : ''}" ${ok ? '' : 'disabled'}><span class="n">${String(i + 1).padStart(2, '0')}</span><span class="nm">${l.name}</span><span class="stars">${ok ? starsHTML(st) : '<span class="label">Locked</span>'}</span></button>`;
+    }).join('');
+  }
+
+  function newTarget() {
+    let x;
+    do { x = Math.round((1.2 + Math.random() * 6.2) * 10) / 10; } while (Math.abs(x - tgt.x) < 0.8);
+    tgt.x = x;
+    renderTargetCard(); reset(); placeGoal();
+  }
+  function renderTargetCard() {
+    $('tgName').textContent = `Target at ${tgt.x.toFixed(1)} m`;
+    $('tgHits').textContent = `${tHits}/${tTries}`;
+    $('tgStreak').textContent = streak;
+    $('tgBest').textContent = `Best streak ${bestStreak}`;
+    $('tgZone').textContent = `±${(tgt.w / 2).toFixed(2)}`;
+  }
+
+  function setMode(m) {
+    closeModals();
+    mode = m;
+    document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
+    $('chCard').hidden = m !== 'challenge'; $('tgCard').hidden = m !== 'target'; $('tipBox').hidden = m !== 'lab';
+    if (m === 'challenge') {
+      let i = LEVELS.findIndex(l => !progress[l.id]);
+      if (i < 0) i = lvlIdx;
+      enterLevel(i);
+    } else {
+      applyLocks(null);
+      if (m === 'target') { tHits = 0; tTries = 0; streak = 0; newTarget(); }
+      else { reset(); placeGoal(); }
+    }
+    updatePrediction();
+  }
+
+  // ---------- Modals ----------
+  let modalReturn = null;
+  function openModal(id) {
+    closeModals(true);
+    modalReturn = document.activeElement;
+    const el = $(id); el.hidden = false;
+    const f = el.querySelector('.primary, [data-close], button'); if (f) f.focus();
+  }
+  function closeModals(keepFocus) {
+    let was = false;
+    document.querySelectorAll('.modal').forEach(m => { if (!m.hidden) { m.hidden = true; was = true; } });
+    if (was && !keepFocus && modalReturn && modalReturn.focus) modalReturn.focus();
+  }
+  const anyModal = () => [...document.querySelectorAll('.modal')].some(m => !m.hidden);
+  function openWin(stars, msg) {
+    const lv = LEVELS[lvlIdx], last = lvlIdx >= LEVELS.length - 1;
+    $('winName').textContent = lv.name;
+    $('winStars').innerHTML = starsHTML(stars);
+    $('winMsg').textContent = `${msg} Cleared in ${lvlTries} ${lvlTries === 1 ? 'try' : 'tries'}.` + (stars < 3 ? ' Clear it on the first try for three stars.' : '');
+    $('winLesson').textContent = lv.lesson;
+    $('winNext').textContent = last ? 'See all challenges' : 'Next challenge';
+    openModal('mWin');
+  }
+  document.querySelectorAll('.modal').forEach(m => {
+    m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-close]')) closeModals(); });
+  });
+  $('winReplay').addEventListener('click', () => { closeModals(); enterLevel(lvlIdx); });
+  $('winNext').addEventListener('click', () => {
+    if (lvlIdx >= LEVELS.length - 1) { renderLevelGrid(); openModal('mLevels'); }
+    else { closeModals(); enterLevel(lvlIdx + 1); }
+  });
+  $('levelGrid').addEventListener('click', e => {
+    const b = e.target.closest('[data-lvl]'); if (!b || b.disabled) return;
+    closeModals();
+    if (mode !== 'challenge') {
+      mode = 'challenge';
+      document.querySelectorAll('[data-mode]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.mode === 'challenge')));
+      $('chCard').hidden = false; $('tgCard').hidden = true; $('tipBox').hidden = true;
+    }
+    enterLevel(+b.dataset.lvl);
+    updatePrediction();
+  });
+
+  // ---------- Controls ----------
+  function syncOutputs() {
+    $('thetaOut').textContent = P.theta + '°';
+    $('lenOut').textContent = P.L.toFixed(1) + ' m';
+    $('musOut').textContent = P.mus.toFixed(2); $('mukOut').textContent = P.muk.toFixed(2);
+    $('massOut').textContent = P.m.toFixed(1) + ' kg'; $('v0Out').textContent = P.v0.toFixed(1) + ' m/s';
+  }
+  function matchSurface() {
+    const id = Object.keys(SURFACES).find(k => Math.abs(SURFACES[k][0] - P.mus) < 1e-6 && Math.abs(SURFACES[k][1] - P.muk) < 1e-6);
+    $('surface').value = id || 'custom';
+  }
+  function syncInputs() {
+    $('theta').value = P.theta; $('len').value = P.L; $('mus').value = P.mus; $('muk').value = P.muk; $('mass').value = P.m; $('v0').value = P.v0;
+    $('g' + P.planet).checked = true;
+    matchSurface(); syncOutputs(); drawBlockFace();
+    if (G) { buildRamp(); placeGoal(); }
+  }
+  function paramChanged(rebuild) {
+    syncOutputs(); reset();
+    if (rebuild && G) { buildRamp(); placeGoal(); }
+  }
+
+  function launch() {
+    if (anyModal()) return;
+    Snd.ensure();
+    if (S.run) { S.run = false; setGo('Resume'); setStatus('Paused. Press Resume or Space to carry on.', ''); Snd.slide(0); return; }
+    if (S.done) reset();
+    if (S.t === 0 && S.v <= 1e-9 && Math.tan(rad()) <= P.mus) { finish('static'); return; }
+    if (S.t === 0) Snd.launch();
+    S.run = true; S.shownPhase = null; setGo('Pause'); last = performance.now();
+  }
+  $('go').addEventListener('click', launch);
+  $('reset').addEventListener('click', () => { reset(); });
+
+  $('theta').addEventListener('input', e => { P.theta = +e.target.value; paramChanged(true); });
+  $('len').addEventListener('input', e => { P.L = +e.target.value; paramChanged(true); });
+  $('mass').addEventListener('input', e => { P.m = +e.target.value; drawBlockFace(); paramChanged(false); });
+  $('v0').addEventListener('input', e => { P.v0 = +e.target.value; paramChanged(false); });
+  $('mus').addEventListener('input', e => {
+    P.mus = +e.target.value;
+    if (P.muk > P.mus) { if (isLocked('muk')) { P.mus = P.muk; e.target.value = P.mus; } else { P.muk = P.mus; $('muk').value = P.muk; } }
+    matchSurface(); paramChanged(false);
+  });
+  $('muk').addEventListener('input', e => {
+    P.muk = +e.target.value;
+    if (P.muk > P.mus) { if (isLocked('mus')) { P.muk = P.mus; e.target.value = P.muk; } else { P.mus = P.muk; $('mus').value = P.mus; } }
+    matchSurface(); paramChanged(false);
+  });
+  $('surface').addEventListener('change', e => {
+    const s = SURFACES[e.target.value]; if (!s) return;
+    P.mus = s[0]; P.muk = s[1]; $('mus').value = P.mus; $('muk').value = P.muk; paramChanged(false);
+  });
+  document.querySelectorAll('input[name="g"]').forEach(r => r.addEventListener('change', e => { P.planet = e.target.value; paramChanged(false); }));
+  document.querySelectorAll('input[name="sp"]').forEach(r => r.addEventListener('change', e => { P.speed = +e.target.value; }));
+  document.querySelectorAll('input[name="cam"]').forEach(r => r.addEventListener('change', e => setCamMode(e.target.value)));
+  document.querySelectorAll('input[name="gm"]').forEach(r => r.addEventListener('change', e => { P.graph = e.target.value; invalidate(); }));
+  $('tForces').addEventListener('change', e => { P.forces = e.target.checked; invalidate(); });
+  $('tComps').addEventListener('change', e => { P.comps = e.target.checked; invalidate(); });
+  $('tTape').addEventListener('change', e => { P.tape = e.target.checked; if (G) G.tapeDots.forEach(d => d.visible = P.tape); invalidate(); });
+  $('tGhost').addEventListener('change', e => { P.ghost = e.target.checked; invalidate(); });
+  document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  $('soundBtn').addEventListener('click', toggleSound);
+  $('helpBtn').addEventListener('click', () => openModal('mHelp'));
+  $('nextTip').addEventListener('click', () => { tipIdx = (tipIdx + 1) % TIPS.length; $('tip').textContent = TIPS[tipIdx]; });
+  $('hintBtn').addEventListener('click', () => { const h = $('chHint'); h.hidden = !h.hidden; $('hintBtn').textContent = h.hidden ? 'Show hint' : 'Hide hint'; });
+  $('chPrev').addEventListener('click', () => { enterLevel(lvlIdx - 1); updatePrediction(); });
+  $('chNext').addEventListener('click', () => { enterLevel(lvlIdx + 1); updatePrediction(); });
+  $('chList').addEventListener('click', () => { renderLevelGrid(); openModal('mLevels'); });
+  $('tgNew').addEventListener('click', () => { streak = 0; newTarget(); });
+  $('clearLog').addEventListener('click', () => { runs.length = 0; runNo = 0; renderLog(); $('csvBox').hidden = true; $('copied').hidden = true; });
+  $('copyCsv').addEventListener('click', () => {
+    const text = csv(), box = $('csvBox');
+    const fallback = () => { box.value = text; box.hidden = false; box.focus(); box.select(); $('copied').hidden = true; };
+    if (!runs.length) { $('copied').textContent = 'Nothing to copy yet. Launch a run first.'; $('copied').hidden = false; return; }
+    try {
+      navigator.clipboard.writeText(text).then(() => {
+        box.hidden = true; $('copied').textContent = `Copied ${runs.length} run${runs.length === 1 ? '' : 's'}. Paste into any spreadsheet.`; $('copied').hidden = false;
+      }, fallback);
+    } catch (e) { fallback(); }
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { if (anyModal()) { closeModals(); e.preventDefault(); } return; }
+    if (e.metaKey || e.ctrlKey || e.altKey || anyModal()) return;
+    if (e.target.closest && e.target.closest('input, select, textarea, button')) return;
+    const k = e.key.toLowerCase();
+    if (e.code === 'Space') { e.preventDefault(); launch(); }
+    else if (k === 'r') reset();
+    else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !isLocked('theta')) {
+      e.preventDefault();
+      const nv = clamp(P.theta + (e.key === 'ArrowRight' ? 1 : -1), 5, 60);
+      if (nv !== P.theta) { P.theta = nv; $('theta').value = nv; paramChanged(true); }
+    }
+    else if (k === '1') setCamMode('bench');
+    else if (k === '2') setCamMode('follow');
+    else if (k === '3') setCamMode('side');
+    else if (k === 'g') { P.ghost = !P.ghost; $('tGhost').checked = P.ghost; invalidate(); }
+    else if (k === 'f') { P.forces = !P.forces; $('tForces').checked = P.forces; invalidate(); }
+    else if (k === 'm') toggleSound();
+    else if (e.key === '?') openModal('mHelp');
+  });
+
+  // Theme changes from the OS or the viewer's toggle
+  const mq = matchMedia('(prefers-color-scheme: dark)');
+  if (mq.addEventListener) mq.addEventListener('change', readTokens);
+  new MutationObserver(readTokens).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class', 'style'] });
+  window.addEventListener('resize', invalidate);
+
+  // ---------- Boot ----------
+  readTokens();
+  renderSound();
+  $('tip').textContent = TIPS[0];
+  syncOutputs();
+  reset();
+  renderLog();
+  try {
+    if (typeof THREE === 'undefined') throw new Error('3D library did not load');
+    initScene();
+  } catch (err) {
+    G = null;
+    $('loading').textContent = 'The 3D view could not start in this browser. The readings, predictions and graphs still work.';
+  }
+  invalidate();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
